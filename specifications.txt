@@ -1,0 +1,79 @@
+================================================================================
+YOUTUBE MUSIC PLAYER - ARCHITECTURAL & AUDIO SPECIFICATIONS
+================================================================================
+
+PROJECT CREDITS:
+Conceived by Quio, designed collaboratively, and coded & assembled using AI with Google Antigravity.
+
+--------------------------------------------------------------------------------
+1. CORE PRODUCT VISION & PHILOSOPHY
+--------------------------------------------------------------------------------
+A laser-focused, distraction-free YouTube Music player and playlist compiler.
+- No feature bloat: no Discord RPC, no complex social feeds, no AI lyrics translation widgets, no 50-slider equalizer submenus.
+- Two target platforms:
+  * Desktop (Mac/PC): The "Studio/Compiler" for fast mouse-and-keyboard curation, track search, drag-and-drop sequencing, and playlist assembly.
+  * Android Phone: The "Pocket Player" for clean, distraction-free playback, true mathematical shuffle, 1-tap "Surprise Me", and lock-screen/background audio.
+- Local-First Architecture & Offline Capabilities:
+  * Playlists are stored locally by default, allowing zero-latency offline curation, draft compilation, and editing without hitting YouTube API rate limits.
+  * 1-Click "Export to YouTube Music": Finished local compilations can be instantly pushed and synced into the user's YouTube account, seamlessly bridging the Desktop-to-Android gap.
+  * True Offline Audio Playback: Automatic caching of streamed tracks and 1-tap "Download Playlist". When offline, tracks play instantly from the local SSD/storage (zero network buffering, zero resolution delay).
+
+--------------------------------------------------------------------------------
+2. HARDCODED AUDIO ENGINE SPECIFICATIONS (THE "SPOTIFY SOUND" FORMULA)
+--------------------------------------------------------------------------------
+All sound processing is hardcoded directly into the player engine for an even,
+studio-grade listening experience out of the box with zero user configuration required.
+
+A. LOUDNESS & VOLUME LEVELING:
+- Normalization Standard: ITU-R BS.1770-4 / EBU R128.
+- Target Integrated Loudness: -14.0 dB LUFS.
+- Loudness Source: Directly utilizes YouTube's perceptual 'loudnessDb' metadata offset.
+- True Peak Ceiling: Hardcoded to -1.0 dB TP (leaves 1.0 dB headroom to prevent inter-sample clipping and DAC analog distortion).
+- Peak Safety Limiter: Android native DynamicsProcessing limiter (Attack: 5ms, Release: 100ms) engaged automatically when boosting quiet tracks.
+- Normalization Scope: Track-level normalization during playlists and shuffle (eliminates volume jumps between different artists/eras).
+
+B. TRANSITION MECHANICS & GAPLESS PLAYBACK:
+- True Gapless Playback: Hardcoded ON. Container delay and encoder padding are decoded so Song B starts the exact millisecond Song A finishes (0ms gap).
+- Crossfade: Hardcoded OFF (0.0 seconds) by default, matching Spotify's factory behavior.
+- Lookahead Pre-Buffering: When the active track reaches 15-20 seconds remaining, the player silently pre-fetches and buffers the next track's stream in memory for seamless, zero-latency handover.
+- Anti-Click Micro-Ramp: 30ms cosine/linear soft ramp-down and ramp-up applied to all manual state transitions (play, pause, seek, track skip) to prevent speaker DC-offset pops.
+
+C. STREAM FIDELITY:
+- Audio Quality: Permanently locked to 256 kbps AAC (Itag 141) or maximum-bitrate Opus via authenticated YouTube Premium account session.
+- No dynamic bitrate downscaling during normal playback.
+
+D. SYSTEM AUDIO FOCUS & POLISH:
+- "Become Noisy" Protection: Immediate pause on headphone disconnect or Bluetooth unpair.
+- Notification Ducking: Smooth volume drop to 25% over 200ms during system chimes or navigation prompts, followed by a 300ms recovery ramp to 100%.
+- Graceful Pause: 50ms soft micro-fadeout on pause rather than a hard digital cut.
+
+--------------------------------------------------------------------------------
+3. CORE APPLICATION FEATURES
+--------------------------------------------------------------------------------
+
+A. TRUE MATHEMATICAL RANDOM SHUFFLE:
+- Algorithm: Cryptographic uniform Fisher-Yates permutation executed in-memory.
+- Isolation: Strictly shuffles only the selected playlist/queue with zero algorithmic leakage (no unwanted YouTube recommendation tracks injected into the queue).
+- Artist Anti-Clumping: Intelligent distribution to prevent back-to-back tracks by the same artist.
+- "Bake Shuffle": Option to write the randomized sequence back to YouTube Music as a static playlist order, allowing identical playback on any third-party device.
+
+B. "SURPRISE ME" DISCOVERY ENGINE:
+- Option 1 (Forgotten Gems): Cross-references the user's Liked Music and saved playlists against their YouTube Music Listening History ('FEmusic_history') to surface tracks they love but have not played in months.
+- Option 2 (Acoustic Radio Jump): Seeds YouTube Music's native recommendation graph ('RDAMVM...') from a selected favorite song to dynamically load 25-50 fresh, acoustically similar tracks.
+
+C. LIST ORDERING & COMPILING:
+- Desktop Curation: Fast track reordering via drag-and-drop, multi-select ('Shift + Click'), and batch operations (merge playlists, reverse, deduplicate).
+- Compilation Pipeline: Search tracks by artist, album, genre, or charts and compile directly into a new or existing YouTube Music playlist.
+
+D. STRICT SEARCH ENGINE:
+- Strict categorized queries: Track, Artist, Album, Genre, and Popularity.
+- Popularity Metrics: Ranked by verifiable YouTube view/play counts and official charts rather than vague black-box algorithms.
+- Similarity Search: One-click "Find Similar Songs" button attached to every track card.
+
+--------------------------------------------------------------------------------
+4. RECOMMENDED TECHNICAL STACK
+--------------------------------------------------------------------------------
+- UI & Framework: Kotlin + Jetpack Compose (or Compose Multiplatform for Desktop + Android).
+- Media Player Engine: AndroidX Media3 (ExoPlayer) with MediaSessionService.
+- YouTube Music Protocol: Kotlin Innertube client with Web-based cookie authentication for YouTube Premium.
+================================================================================

@@ -1,0 +1,45 @@
+# Built application files
+*.apk
+*.aar
+*.aab
+*.dex
+
+# Files for the ART/Dalvik VM
+*.class
+
+# Java byte code cache
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio / IntelliJ IDEA
+.idea/
+*.iml
+.shelf/
+android/*.iml
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Local configuration file (sdk.dir, etc)
+local.properties
+
+# Secrets & Sessions
+*.cookie
+*.cookies
+cookies.txt
+session.json
+*.keystore
+*.jks
+
+# Log files
+*.log
+
+# Caches
+.pyinstaller_cache
+__pycache__/
+.venv/
