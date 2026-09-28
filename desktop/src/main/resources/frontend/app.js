@@ -137,6 +137,7 @@ const DOM = {
   rightPlaylistPicker: document.getElementById('right-playlist-picker'),
   rightStandardActionHeader: document.getElementById('right-standard-action-header'),
   rightSelectedText: document.getElementById('right-selected-text'),
+  rightAddAllBtn: document.getElementById('right-add-all-btn'),
   rightAddSelectedBtn: document.getElementById('right-add-selected-btn'),
   rightItemsContainer: document.getElementById('right-items-container'),
   
@@ -217,6 +218,13 @@ const DOM = {
   settingsClientId: document.getElementById('settings-client-id'),
   settingsClientSecret: document.getElementById('settings-client-secret'),
   
+  // Sync Conflict Modal
+  syncConflictModal: document.getElementById('sync-conflict-modal'),
+  closeSyncConflictModal: document.getElementById('close-sync-conflict-modal'),
+  cancelSyncConflictModal: document.getElementById('cancel-sync-conflict-modal'),
+  confirmSyncConflictModal: document.getElementById('confirm-sync-conflict-modal'),
+  syncConflictDesc: document.getElementById('sync-conflict-desc'),
+  
   // Confirmation / Rename Dialog Modal
   confirmModal: document.getElementById('confirm-modal'),
   closeConfirmModal: document.getElementById('close-confirm-modal'),
@@ -232,10 +240,12 @@ const DOM = {
   customContextMenu: document.getElementById('custom-context-menu'),
   ctxToggleLike: document.getElementById('ctx-toggle-like'),
   playlistContextMenu: document.getElementById('playlist-context-menu'),
+  ctxPlaylistSync: document.getElementById('ctx-playlist-sync'),
   toastContainer: document.getElementById('toast-container')
 };
 
 let activeContextMenuPlaylist = null;
+let activeSyncPlaylist = null;
 let confirmModalCallback = null;
 
 // --- Internationalization (i18n) System: English & Spanish ---
@@ -1666,14 +1676,28 @@ async function loadPlaylists() {
 
       if (p.id === 'liked_songs') return;
 
+      const isSynced = Boolean(p.is_synced);
+      const syncBadgeHtml = isSynced
+        ? ''
+        : `<button class="playlist-sync-badge unsynced" title="Unsynced changes - click to sync with YouTube">🔄</button>`;
+
       const item = document.createElement('div');
       item.className = `nav-item ${state.activeView === p.id ? 'active' : ''}`;
       item.dataset.playlistId = p.id;
       item.innerHTML = `
         <span class="nav-icon">📑</span>
-        <span class="nav-label">${escapeHtml(p.name)}</span>
-        <span class="nav-count">${p.total_tracks}</span>
+        <span class="nav-label" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${escapeHtml(p.name)}</span>
+        <span class="nav-count" style="margin-right:4px;">${p.total_tracks}</span>
+        ${syncBadgeHtml}
       `;
+
+      const syncBtn = item.querySelector('.playlist-sync-badge.unsynced');
+      if (syncBtn) {
+        syncBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          handleSyncPlaylist(p);
+        });
+      }
 
       item.addEventListener('click', () => {
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -1787,10 +1811,9 @@ function renderTracksTable() {
   state.tracks.forEach((track, index) => {
     const isSelected = state.selectedIds.has(track.id);
     
-    // Match by ID, URI, or Title
-    const isNowPlaying = (
-      (state.currentPlayingTrackId && (track.id === state.currentPlayingTrackId || track.uri === state.currentPlayingTrackId)) ||
-      (state.currentPlayingTrackTitle && track.title && track.title.toLowerCase().trim() === state.currentPlayingTrackTitle.toLowerCase().trim())
+    // Strictly match by ID or URI to avoid marking all songs with the same title
+    const isNowPlaying = Boolean(
+      state.currentPlayingTrackId && (track.id === state.currentPlayingTrackId || (track.uri && track.uri === state.currentPlayingTrackId))
     );
 
     const tr = document.createElement('tr');
@@ -1953,47 +1976,37 @@ async function playTrackUris(uris, startingTitle = '', sourceName = '') {
 async function handlePlayRightTrack(track, index, sourceListType) {
   if (!track) return;
   const isEs = state.currentLang === 'es';
-  let list = [];
-  let sourceName = '';
-
-  if (sourceListType === 'discovery') {
-    list = state.discovery.discoveredTracks || [];
-    sourceName = isEs ? '¡Sorpréndeme!' : 'Surprise Me';
-  } else {
-    list = state.rightTracks || [];
-    if (state.rightTab === 'search') {
-      sourceName = isEs ? 'Búsqueda' : 'Search';
-    } else if (state.rightTab === 'playlist') {
-      sourceName = isEs ? 'Playlists' : 'Playlists';
-    } else {
-      sourceName = isEs ? 'Resultados' : 'Results';
-    }
-  }
 
   // If already playing this song, toggle play/pause
-  const isCurrentPlaying = (
-    (state.currentPlayingTrackId && (track.id === state.currentPlayingTrackId || (track.uri && track.uri === state.currentPlayingTrackId))) ||
-    (state.currentPlayingTrackTitle && track.title && track.title.toLowerCase().trim() === state.currentPlayingTrackTitle.toLowerCase().trim())
+  const isCurrentPlaying = Boolean(
+    state.currentPlayingTrackId && (track.id === state.currentPlayingTrackId || (track.uri && track.uri === state.currentPlayingTrackId))
   );
 
   if (isCurrentPlaying) {
-    try {
-      await api('/api/player/control', { method: 'POST', body: JSON.stringify({ action: 'playpause' }) });
-      pollPlayerState();
-    } catch (e) {
-      showToast((isEs ? 'Error al pausar/reanudar: ' : 'Playback toggle error: ') + e.message, 'error');
+    if (ytAudioPlayer && typeof ytAudioPlayer.getPlayerState === 'function') {
+      const pState = ytAudioPlayer.getPlayerState();
+      if (pState === 1) { // playing
+        ytAudioPlayer.pauseVideo();
+      } else {
+        ytAudioPlayer.playVideo();
+      }
+      return;
     }
-    return;
   }
 
-  const trackUri = track.uri || (track.id ? `spotify:track:${track.id}` : null);
-  if (!trackUri) return;
+  playYouTubeTrack(track);
+  showToast(isEs ? `▶ Reproduciendo "${track.title}"` : `▶ Playing "${track.title}"`);
 
-  const uris = (list && list.length > 0 && index >= 0 && index < list.length)
-    ? list.slice(index).map(t => t.uri || `spotify:track:${t.id}`).filter(Boolean)
-    : [trackUri];
-
-  await playTrackUris(uris.length > 0 ? uris : [trackUri], track.title, sourceName);
+  try {
+    await api('/api/player/play', {
+      method: 'POST',
+      body: JSON.stringify({
+        uris: [track.uri || `yt:track:${track.id}`],
+        track_id: track.id,
+        true_shuffle: false
+      })
+    });
+  } catch (e) {}
 }
 
 // --- Liked Songs Management ---
@@ -2101,23 +2114,22 @@ function updateTrackLikeButtonsUI(trackId, isLiked) {
 
 async function playFromIndex(startIndex) {
   if (startIndex < 0 || startIndex >= state.tracks.length) return;
-  const queueUris = state.tracks.slice(startIndex).map(t => t.uri);
-  
+  const startingTrack = state.tracks[startIndex];
+  playYouTubeTrack(startingTrack);
+  showToast(`▶ Playing "${startingTrack.title}" & queuing next songs`);
+
+  const queueUris = state.tracks.slice(startIndex).map(t => t.uri || `yt:track:${t.id}`);
   try {
     await api('/api/player/play', {
       method: 'POST',
       body: JSON.stringify({
         uris: queueUris,
+        track_id: startingTrack.id,
         true_shuffle: false,
         device_id: DOM.deviceSelect?.value || null
       })
     });
-    const startingTrack = state.tracks[startIndex];
-    showToast(`▶ Playing "${startingTrack.title}" & queuing next songs`);
-    pollPlayerState();
-  } catch (e) {
-    showToast('Playback error: ' + e.message, 'error');
-  }
+  } catch (e) {}
 }
 
 async function playNextInActiveList() {
@@ -2262,12 +2274,8 @@ function updateSelectionUI() {
   });
 
   const count = state.selectedIds.size;
-  if (count > 0) {
-    DOM.selectionActionBar.classList.remove('hidden');
-    DOM.selectedCountText.textContent = t('selectedCount', { count, s: count === 1 ? '' : (state.currentLang === 'es' ? 'es' : 's') });
-  } else {
-    DOM.selectionActionBar.classList.add('hidden');
-  }
+  // Per user requirement: do not pop up options bar/modal when selecting tracks in main queue
+  DOM.selectionActionBar?.classList.add('hidden');
 
   if (DOM.selectAllCheckbox) {
     DOM.selectAllCheckbox.checked = count > 0 && count === state.tracks.length;
@@ -2327,6 +2335,7 @@ function attachDragAndDropHandlers(tr, trackId, index) {
 
   tr.addEventListener('drop', async (e) => {
     e.preventDefault();
+    e.stopPropagation();
     tr.classList.remove('drop-target-above', 'drop-target-below');
 
     try {
@@ -2339,6 +2348,7 @@ function attachDragAndDropHandlers(tr, trackId, index) {
       if (!payload && window.__draggedTracksFromRight) {
         payload = { source: 'right', tracks: window.__draggedTracksFromRight };
       }
+      window.__draggedTracksFromRight = null;
 
       // Case 1: Songs dropped from right browser / Discovery studio
       if (payload && payload.source === 'right' && payload.tracks && payload.tracks.length > 0) {
@@ -2362,27 +2372,33 @@ function attachDragAndDropHandlers(tr, trackId, index) {
 }
 
 function initWorkspaceContainerDrop() {
-  const targets = [DOM.tableContainer, DOM.emptyState, DOM.tracksTbody, document.getElementById('main-content')].filter(Boolean);
-  targets.forEach(el => {
-    el.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
-    });
-    el.addEventListener('drop', (e) => {
-      if (e.target.closest('.track-row')) return; // Row drop handled by row listener
-      e.preventDefault();
-      let payload = null;
-      try {
-        const raw = e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
-        payload = raw ? JSON.parse(raw) : null;
-      } catch (err) {}
-      if (!payload && window.__draggedTracksFromRight) {
-        payload = { source: 'right', tracks: window.__draggedTracksFromRight };
-      }
-      if (payload && payload.source === 'right' && payload.tracks && payload.tracks.length > 0) {
-        insertTracksIntoMainPanel(payload.tracks, state.tracks.length);
-      }
-    });
+  const container = DOM.tableContainer || document.getElementById('main-content');
+  if (!container) return;
+
+  container.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+
+  container.addEventListener('drop', (e) => {
+    if (e.target.closest('.track-row')) return; // Row drop handled by row listener
+    e.preventDefault();
+    e.stopPropagation();
+
+    let payload = null;
+    try {
+      const raw = e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
+      payload = raw ? JSON.parse(raw) : null;
+    } catch (err) {}
+
+    if (!payload && window.__draggedTracksFromRight) {
+      payload = { source: 'right', tracks: window.__draggedTracksFromRight };
+    }
+    window.__draggedTracksFromRight = null;
+
+    if (payload && payload.source === 'right' && payload.tracks && payload.tracks.length > 0) {
+      insertTracksIntoMainPanel(payload.tracks, state.tracks.length);
+    }
   });
 }
 
@@ -2452,6 +2468,22 @@ async function insertTracksIntoMainPanel(newTracks, targetIndex) {
       } catch (e) {}
     }
   }
+
+  // Sync to backend queue
+  api('/api/queue/append', {
+    method: 'POST',
+    body: JSON.stringify({
+      tracks: newTracks.map(t => ({
+        id: t.id,
+        title: t.title,
+        artist: t.artist,
+        album: t.album || '',
+        durationMs: t.duration_ms || t.durationMs || 0,
+        thumbnailUrl: t.album_art_url || t.thumbnailUrl || ''
+      }))
+    })
+  }).catch(() => {});
+
   showToast(`➕ Added ${newTracks.length} song${newTracks.length === 1 ? '' : 's'} to workspace queue`);
 }
 
@@ -2658,7 +2690,7 @@ function initRightPanel() {
     const q = e.target.value.trim();
     if (rightSearchTimeout) clearTimeout(rightSearchTimeout);
     if (!q) {
-      DOM.rightItemsContainer.innerHTML = '<div class="search-placeholder-text">Type above to search Spotify.</div>';
+      DOM.rightItemsContainer.innerHTML = '<div class="search-placeholder-text">Type above to search YouTube Music.</div>';
       return;
     }
     rightSearchTimeout = setTimeout(() => executeRightSearch(q), 350);
@@ -2671,6 +2703,17 @@ function initRightPanel() {
       loadRightPlaylistTracks(pId);
     } else {
       DOM.rightItemsContainer.innerHTML = '<div class="search-placeholder-text">Choose a playlist to browse.</div>';
+    }
+  });
+
+  DOM.rightAddAllBtn?.addEventListener('click', () => {
+    if (state.rightTracks && state.rightTracks.length > 0) {
+      insertTracksIntoMainPanel(state.rightTracks, state.tracks.length);
+      state.rightSelectedIds.clear();
+      updateRightSelectionUI();
+      showToast(`➕ Added all ${state.rightTracks.length} tracks to queue`);
+    } else {
+      showToast('No search results to add', 'error');
     }
   });
 
@@ -2690,20 +2733,33 @@ function initRightPanel() {
 }
 
 async function executeRightSearch(query) {
-  DOM.rightItemsContainer.innerHTML = '<div class="search-placeholder-text">🔍 Searching Spotify...</div>';
+  DOM.rightItemsContainer.innerHTML = '<div class="search-placeholder-text">🔍 Searching YouTube Music...</div>';
   try {
     const endpoint = `/api/search?q=${encodeURIComponent(query)}&type=${state.searchModifier}`;
     const data = await api(endpoint);
     let results = data.results || [];
     
-    // Strict client-side verification
-    const rawQ = query.trim().toLowerCase();
-    if (state.searchModifier === 'track') {
-      results = results.filter(t => t.title && t.title.toLowerCase().includes(rawQ));
+    // Accent-insensitive and case-insensitive hard filtering
+    const qNorm = normalizeStr(query);
+    const queryWords = qNorm.split(/\s+/).filter(w => w.length > 0);
+
+    if (state.searchModifier === 'track' || state.searchModifier === 'song') {
+      // Hard filter: MUST be a song whose title contains the query or words (NOT songs sung by an artist with that name)
+      results = results.filter(t => {
+        const titleNorm = normalizeStr(t.title);
+        return titleNorm.includes(qNorm) || 
+          (queryWords.length > 0 && queryWords.every(w => titleNorm.includes(w))) ||
+          (queryWords.length > 1 && queryWords.some(w => w.length >= 3 && titleNorm.includes(w)));
+      });
     } else if (state.searchModifier === 'artist') {
-      results = results.filter(t => t.artist && t.artist.toLowerCase().includes(rawQ));
+      // Hard filter: song's artist must match the query (e.g. 'Cristián Castro' matches 'cristian castro')
+      results = results.filter(t => {
+        const artistNorm = normalizeStr(t.artist);
+        return artistNorm.includes(qNorm) || 
+          (queryWords.length > 0 && queryWords.every(w => artistNorm.includes(w)));
+      });
     }
-    
+
     state.rightTracks = results;
     renderRightItems();
   } catch (e) {
@@ -2742,9 +2798,8 @@ function renderRightItems() {
     row.dataset.index = index;
     row.draggable = true;
 
-    const isThisPlaying = (
-      (state.currentPlayingTrackId && (track.id === state.currentPlayingTrackId || (track.uri && track.uri === state.currentPlayingTrackId))) ||
-      (state.currentPlayingTrackTitle && track.title && track.title.toLowerCase().trim() === state.currentPlayingTrackTitle.toLowerCase().trim())
+    const isThisPlaying = Boolean(
+      state.currentPlayingTrackId && (track.id === state.currentPlayingTrackId || (track.uri && track.uri === state.currentPlayingTrackId))
     );
     if (isThisPlaying) {
       row.classList.add('now-playing-row');
@@ -3484,9 +3539,8 @@ function renderDiscoveryResultsItems(tracks) {
     row.dataset.index = index;
     row.draggable = true;
 
-    const isThisPlaying = (
-      (state.currentPlayingTrackId && (track.id === state.currentPlayingTrackId || (track.uri && track.uri === state.currentPlayingTrackId))) ||
-      (state.currentPlayingTrackTitle && track.title && track.title.toLowerCase().trim() === state.currentPlayingTrackTitle.toLowerCase().trim())
+    const isThisPlaying = Boolean(
+      state.currentPlayingTrackId && (track.id === state.currentPlayingTrackId || (track.uri && track.uri === state.currentPlayingTrackId))
     );
     if (isThisPlaying) {
       row.classList.add('now-playing-row');
@@ -3715,6 +3769,113 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// --- YouTube Music Audio Engine (IFrame Player) ---
+let ytAudioPlayer = null;
+let isYtAudioReady = false;
+let ytProgressInterval = null;
+
+window.onYouTubeIframeAPIReady = function() {
+  ytAudioPlayer = new YT.Player('yt-audio-player', {
+    height: '100',
+    width: '100',
+    playerVars: {
+      'autoplay': 1,
+      'controls': 0,
+      'disablekb': 1,
+      'playsinline': 1,
+      'origin': window.location.origin
+    },
+    events: {
+      'onReady': () => {
+        isYtAudioReady = true;
+        console.log('✅ YouTube Music Audio Engine ready.');
+        if (DOM.volumeSlider) {
+          ytAudioPlayer.setVolume(parseInt(DOM.volumeSlider.value, 10) || 80);
+        }
+      },
+      'onStateChange': onYtAudioStateChange,
+      'onError': (e) => {
+        console.warn('YouTube Audio Player warning/error code:', e.data);
+      }
+    }
+  });
+};
+
+function onYtAudioStateChange(event) {
+  if (event.data === 1) { // YT.PlayerState.PLAYING
+    if (!state.playerState) state.playerState = {};
+    state.playerState.is_playing = true;
+    updatePlayerPlayPauseButton(true);
+    startYtProgressTimer();
+  } else if (event.data === 2) { // YT.PlayerState.PAUSED
+    if (state.playerState) state.playerState.is_playing = false;
+    updatePlayerPlayPauseButton(false);
+    stopYtProgressTimer();
+  } else if (event.data === 0) { // YT.PlayerState.ENDED
+    stopYtProgressTimer();
+    playNextInActiveList();
+  }
+}
+
+function startYtProgressTimer() {
+  stopYtProgressTimer();
+  ytProgressInterval = setInterval(() => {
+    if (ytAudioPlayer && typeof ytAudioPlayer.getCurrentTime === 'function' && state.playerState?.item) {
+      const curSec = ytAudioPlayer.getCurrentTime();
+      const durSec = ytAudioPlayer.getDuration() || (state.playerState.item.duration_ms / 1000);
+      if (durSec > 0) {
+        const curMs = Math.round(curSec * 1000);
+        const durMs = Math.round(durSec * 1000);
+        state.playerState.progress_ms = curMs;
+        state.playerState.item.duration_ms = durMs;
+        const pct = Math.min(100, Math.max(0, (curSec / durSec) * 100));
+        DOM.progressBarFill.style.width = `${pct}%`;
+      }
+    }
+  }, 400);
+}
+
+function stopYtProgressTimer() {
+  if (ytProgressInterval) {
+    clearInterval(ytProgressInterval);
+    ytProgressInterval = null;
+  }
+}
+
+function playYouTubeTrack(track) {
+  if (!track || !track.id) return;
+  
+  state.currentPlayingTrackId = track.id;
+  state.currentPlayingTrackTitle = track.title;
+  
+  if (ytAudioPlayer && typeof ytAudioPlayer.loadVideoById === 'function') {
+    ytAudioPlayer.loadVideoById(track.id);
+    ytAudioPlayer.playVideo();
+  }
+  
+  const mockState = {
+    is_playing: true,
+    progress_ms: 0,
+    item: {
+      id: track.id,
+      uri: track.uri || `yt:track:${track.id}`,
+      title: track.title,
+      artist: track.artist,
+      album: track.album || '',
+      album_art_url: track.album_art_url || track.thumbnailUrl || '',
+      duration_ms: track.duration_ms || track.durationMs || 0
+    }
+  };
+  state.playerState = mockState;
+  updatePlayerUI(mockState);
+  startYtProgressTimer();
+  
+  api('/api/player/state', {
+    method: 'POST',
+    body: JSON.stringify(mockState)
+  }).catch(() => {});
+}
+
 async function pollPlayerState() {
   if (document.hidden) return;
   try {
@@ -3748,23 +3909,24 @@ function updatePlayerUI(data) {
     DOM.playerArtist.textContent = item.artist;
     updatePlayerPlayPauseButton(isPlaying);
 
-    // Progress Bar
-    const prog = data.progress_ms || 0;
-    const dur = item.duration_ms || 1;
-    const pct = Math.min(100, Math.max(0, (prog / dur) * 100));
-    DOM.progressBarFill.style.width = `${pct}%`;
+    // Progress Bar: only overwrite from polled backend state if local YouTube player is NOT actively playing
+    const isYtPlaying = ytAudioPlayer && typeof ytAudioPlayer.getPlayerState === 'function' && ytAudioPlayer.getPlayerState() === 1;
+    if (!isYtPlaying) {
+      const prog = data.progress_ms || 0;
+      const dur = item.duration_ms || 1;
+      const pct = Math.min(100, Math.max(0, (prog / dur) * 100));
+      DOM.progressBarFill.style.width = `${pct}%`;
+    }
 
-    // Dynamic Vibrant Green Font Highlighting in Table!
+    // Dynamic Vibrant Green Font Highlighting in Table (strictly by ID / URI)
     const rows = DOM.tracksTbody.querySelectorAll('.track-row');
     rows.forEach(row => {
       const rowId = row.dataset.trackId;
       const rowUri = row.dataset.trackUri;
-      const rowTitle = row.dataset.trackTitle;
 
-      const isThisTrack = (
+      const isThisTrack = Boolean(
         (item.id && (rowId === item.id || rowUri === item.id)) ||
-        (item.uri && rowUri === item.uri) ||
-        (rowTitle && item.title && rowTitle.toLowerCase().trim() === item.title.toLowerCase().trim())
+        (item.uri && rowUri === item.uri)
       );
 
       row.classList.toggle('now-playing-row', isThisTrack);
@@ -3775,16 +3937,14 @@ function updatePlayerUI(data) {
       }
     });
 
-    // Update right panel items (Search, Playlists, Discovery results)
+    // Update right panel items strictly by ID / URI (so songs with same title are NOT all marked playing)
     const sideRows = document.querySelectorAll('.right-item-row');
     sideRows.forEach(sRow => {
       const sId = sRow.dataset.trackId;
       const sUri = sRow.dataset.trackUri;
-      const sTitle = sRow.dataset.trackTitle;
-      const isSideTrack = (
+      const isSideTrack = Boolean(
         (item.id && (sId === item.id || sUri === item.id)) ||
-        (item.uri && sUri === item.uri) ||
-        (sTitle && item.title && sTitle.toLowerCase().trim() === item.title.toLowerCase().trim())
+        (item.uri && sUri === item.uri)
       );
       sRow.classList.toggle('now-playing-row', isSideTrack);
       const playBtn = sRow.querySelector('.right-item-play-btn');
@@ -3917,6 +4077,10 @@ async function executePlaylistSave(name, desc, trackIds, overwrite = false, play
   DOM.confirmCreatePlaylistModal.disabled = true;
   DOM.confirmCreatePlaylistModal.textContent = state.currentLang === 'es' ? 'Guardando playlist...' : 'Saving Playlist...';
 
+  const selectedTracks = state.playlistCreationFromActiveList
+    ? state.tracks
+    : state.tracks.filter(t => state.selectedIds.has(t.id));
+
   try {
     const res = await api('/api/playlists/create', {
       method: 'POST',
@@ -3924,6 +4088,7 @@ async function executePlaylistSave(name, desc, trackIds, overwrite = false, play
         name: name,
         description: desc,
         track_ids: trackIds,
+        tracks: selectedTracks,
         overwrite: overwrite,
         playlist_id: playlistId
       })
@@ -3931,9 +4096,9 @@ async function executePlaylistSave(name, desc, trackIds, overwrite = false, play
     
     const isEs = state.currentLang === 'es';
     if (res.overwritten) {
-      showToast(isEs ? `✅ ¡Playlist "${name}" sobrescrita con ${trackIds.length} canciones!` : `✅ Overwrote Playlist "${name}" with ${trackIds.length} songs!`);
+      showToast(isEs ? `💾 ¡Playlist "${name}" sobrescrita localmente con ${trackIds.length} canciones!` : `💾 Overwrote local Playlist "${name}" with ${trackIds.length} songs!`);
     } else {
-      showToast(isEs ? `✅ ¡Playlist "${name}" creada con ${trackIds.length} canciones!` : `✅ Created Playlist "${name}" (${trackIds.length} songs)!`);
+      showToast(isEs ? `💾 ¡Playlist "${name}" guardada localmente (${trackIds.length} canciones)!` : `💾 Saved Playlist "${name}" locally (${trackIds.length} songs)!`);
     }
     
     DOM.createPlaylistModal.classList.add('hidden');
@@ -3943,7 +4108,42 @@ async function executePlaylistSave(name, desc, trackIds, overwrite = false, play
     showToast('Failed to save playlist: ' + e.message, 'error');
   } finally {
     DOM.confirmCreatePlaylistModal.disabled = false;
-    DOM.confirmCreatePlaylistModal.textContent = state.currentLang === 'es' ? 'Crear y guardar en Spotify' : 'Create & Sync to Spotify';
+    DOM.confirmCreatePlaylistModal.textContent = state.currentLang === 'es' ? '💾 Guardar localmente' : '💾 Save Locally';
+  }
+}
+
+// --- Smart Playlist Sync & Conflict Resolution ---
+async function handleSyncPlaylist(p) {
+  if (!p) return;
+  try {
+    showToast(`Checking sync status for "${p.name}"...`);
+    const check = await api(`/api/playlists/${p.id}/sync-check`, { method: 'POST' });
+    
+    if (check.has_conflict) {
+      activeSyncPlaylist = p;
+      const isEs = state.currentLang === 'es';
+      const remoteDate = check.remote_updated_at ? new Date(check.remote_updated_at).toLocaleString() : 'recently';
+      const localDate = new Date(check.local_updated_at).toLocaleString();
+      
+      DOM.syncConflictDesc.innerHTML = isEs
+        ? `⚠️ <strong>Conflicto detectado:</strong> La playlist en YouTube Music tiene cambios más recientes (${check.remote_count} canciones, modificado el ${remoteDate}) que tu copia local (${check.local_count} canciones, modificado el ${localDate}).<br><br>Por defecto se sugiere sincronizar de la app a YouTube, pero puedes elegir la dirección que prefieras:`
+        : `⚠️ <strong>Conflict detected:</strong> The playlist on YouTube Music has newer changes (${check.remote_count} tracks, updated ${remoteDate}) than your local copy (${check.local_count} tracks, updated ${localDate}).<br><br>By default, sync pushes from app to YouTube, but you can choose your preferred direction:`;
+        
+      DOM.syncConflictModal.classList.remove('hidden');
+    } else {
+      // Direct sync: App to YouTube
+      const res = await api(`/api/playlists/${p.id}/sync`, {
+        method: 'POST',
+        body: JSON.stringify({ direction: 'app_to_yt' })
+      });
+      showToast(res.message || `☁️ Sincronizada "${p.name}" exitosamente`);
+      await loadPlaylists();
+      if (state.activeView === p.id) {
+        await loadTracks();
+      }
+    }
+  } catch (e) {
+    showToast('Sync error: ' + e.message, 'error');
   }
 }
 
@@ -4089,8 +4289,17 @@ function initEventListeners() {
 
   // Player Controls
   DOM.ctrlPlaypause?.addEventListener('click', async () => {
-    await api('/api/player/control', { method: 'POST', body: JSON.stringify({ action: 'playpause' }) });
-    pollPlayerState();
+    if (ytAudioPlayer && typeof ytAudioPlayer.getPlayerState === 'function') {
+      const pState = ytAudioPlayer.getPlayerState();
+      if (pState === 1) { // playing
+        ytAudioPlayer.pauseVideo();
+      } else {
+        ytAudioPlayer.playVideo();
+      }
+    } else {
+      await api('/api/player/control', { method: 'POST', body: JSON.stringify({ action: 'playpause' }) });
+      pollPlayerState();
+    }
   });
   DOM.ctrlNext?.addEventListener('click', () => {
     playNextInActiveList();
@@ -4108,6 +4317,9 @@ function initEventListeners() {
     const pct = Math.max(0, Math.min(1, clickX / rect.width));
     const newPosMs = Math.round(pct * state.playerState.item.duration_ms);
     DOM.progressBarFill.style.width = `${pct * 100}%`;
+    if (ytAudioPlayer && typeof ytAudioPlayer.seekTo === 'function') {
+      ytAudioPlayer.seekTo(newPosMs / 1000, true);
+    }
     await api('/api/player/seek', {
       method: 'POST',
       body: JSON.stringify({ position_ms: newPosMs })
@@ -4117,9 +4329,13 @@ function initEventListeners() {
 
   // Volume Slider
   DOM.volumeSlider?.addEventListener('input', (e) => {
+    const vol = parseInt(e.target.value, 10);
+    if (ytAudioPlayer && typeof ytAudioPlayer.setVolume === 'function') {
+      ytAudioPlayer.setVolume(vol);
+    }
     api('/api/player/volume', {
       method: 'POST',
-      body: JSON.stringify({ volume_percent: parseInt(e.target.value, 10) })
+      body: JSON.stringify({ volume_percent: vol })
     }).catch(() => {});
   });
 
@@ -4128,7 +4344,37 @@ function initEventListeners() {
   DOM.cancelCreatePlaylistModal?.addEventListener('click', () => DOM.createPlaylistModal.classList.add('hidden'));
   DOM.confirmCreatePlaylistModal?.addEventListener('click', handleCreateSpotifyPlaylist);
 
-  // Playlist Context Menu Actions (Rename, Delete)
+  // Sync Conflict Modal Listeners
+  DOM.closeSyncConflictModal?.addEventListener('click', () => DOM.syncConflictModal.classList.add('hidden'));
+  DOM.cancelSyncConflictModal?.addEventListener('click', () => DOM.syncConflictModal.classList.add('hidden'));
+  DOM.confirmSyncConflictModal?.addEventListener('click', async () => {
+    if (!activeSyncPlaylist) return;
+    const direction = document.querySelector('input[name="sync-direction"]:checked')?.value || 'app_to_yt';
+    DOM.confirmSyncConflictModal.disabled = true;
+    try {
+      const res = await api(`/api/playlists/${activeSyncPlaylist.id}/sync`, {
+        method: 'POST',
+        body: JSON.stringify({ direction })
+      });
+      DOM.syncConflictModal.classList.add('hidden');
+      showToast(res.message || 'Synced successfully!');
+      await loadPlaylists();
+      if (state.activeView === activeSyncPlaylist.id) {
+        await loadTracks();
+      }
+    } catch (e) {
+      showToast('Sync error: ' + e.message, 'error');
+    } finally {
+      DOM.confirmSyncConflictModal.disabled = false;
+    }
+  });
+
+  // Playlist Context Menu Actions (Sync, Rename, Delete)
+  document.getElementById('ctx-playlist-sync')?.addEventListener('click', () => {
+    if (!activeContextMenuPlaylist) return;
+    handleSyncPlaylist(activeContextMenuPlaylist);
+  });
+
   document.getElementById('ctx-playlist-rename')?.addEventListener('click', () => {
     if (!activeContextMenuPlaylist) return;
     const p = activeContextMenuPlaylist;
@@ -4322,6 +4568,14 @@ function formatDuration(ms) {
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function normalizeStr(str) {
+  return (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 }
 
 function showToast(message, type = 'info') {

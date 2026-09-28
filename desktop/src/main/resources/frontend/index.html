@@ -486,11 +486,16 @@
         </div>
 
         <!-- Action Header for Standard Search / Playlists -->
-        <div id="right-standard-action-header" class="right-action-header">
+        <div id="right-standard-action-header" class="right-action-header" style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
           <span id="right-selected-text" class="right-selected-count">0 selected</span>
-          <button id="right-add-selected-btn" class="btn btn-sm btn-primary" data-tooltip-title="Add to Main List" data-tooltip="Append selected songs from the right panel directly into your active list.">
-            ➕ Add to Main List
-          </button>
+          <div style="display:flex; gap:6px;">
+            <button id="right-add-all-btn" class="btn btn-sm btn-secondary" data-tooltip-title="Add All to Main Queue" data-tooltip="Append all current search results to your main active queue.">
+              ➕ Add All
+            </button>
+            <button id="right-add-selected-btn" class="btn btn-sm btn-primary" data-tooltip-title="Add to Main List" data-tooltip="Append selected songs from the right panel directly into your active list.">
+              ➕ Add Selected
+            </button>
+          </div>
         </div>
 
         <!-- Selectable & Draggable Items List (Search / Playlists) -->
@@ -553,6 +558,7 @@
 
   <!-- Custom Right-Click Context Menu for Playlists -->
   <div id="playlist-context-menu" class="context-menu hidden">
+    <div class="context-item" id="ctx-playlist-sync">🔄 Sync to YouTube Music</div>
     <div class="context-item" id="ctx-playlist-rename">✏️ Rename Playlist</div>
     <div class="context-divider"></div>
     <div class="context-item danger" id="ctx-playlist-delete">🗑️ Delete Playlist</div>
@@ -579,17 +585,17 @@
     </div>
   </div>
 
-  <!-- Modal: Create New YouTube Music Playlist from Selection -->
+  <!-- Modal: Create New Playlist (Local-First) -->
   <div id="create-playlist-modal" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
-        <h3>➕ Create YouTube Music Playlist from Selected Songs</h3>
+        <h3 id="create-playlist-modal-title">💾 Save Playlist (Local-First)</h3>
         <button id="close-create-playlist-modal" class="icon-btn">✕</button>
       </div>
       <div class="modal-body">
         <div class="form-field">
           <label>Playlist Name:</label>
-          <input type="text" id="new-playlist-name" placeholder="e.g. Kiki's Special Mix">
+          <input type="text" id="new-playlist-name" placeholder="e.g. My Favorite Jams">
         </div>
         <div class="form-field">
           <label>Description (Optional):</label>
@@ -599,7 +605,50 @@
       </div>
       <div class="modal-footer">
         <button id="cancel-create-playlist-modal" class="btn btn-secondary">Cancel</button>
-        <button id="confirm-create-playlist-modal" class="btn btn-primary">Create & Sync to YouTube Music</button>
+        <button id="confirm-create-playlist-modal" class="btn btn-primary">💾 Save Locally</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Sync Conflict / Direction Choice -->
+  <div id="sync-conflict-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 id="sync-conflict-title">☁️ Sync YouTube Music Playlist</h3>
+        <button id="close-sync-conflict-modal" class="icon-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="sync-conflict-desc" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.5;"></p>
+        
+        <div class="sync-direction-options" style="display: flex; flex-direction: column; gap: 10px;">
+          <label class="sync-direction-card" style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; background: var(--bg-hover);">
+            <input type="radio" name="sync-direction" value="app_to_yt" checked style="margin-top: 3px;">
+            <div>
+              <div style="font-weight: 600; font-size: 13px; color: var(--text-primary);">⬆️ Upload Local to YouTube (Default)</div>
+              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">Overwrites YouTube Music with your local app changes.</div>
+            </div>
+          </label>
+
+          <label class="sync-direction-card" style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; background: var(--bg-hover);">
+            <input type="radio" name="sync-direction" value="yt_to_app" style="margin-top: 3px;">
+            <div>
+              <div style="font-weight: 600; font-size: 13px; color: var(--text-primary);">⬇️ Pull from YouTube to App</div>
+              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">Updates your local playlist with the newer version from YouTube Music.</div>
+            </div>
+          </label>
+
+          <label class="sync-direction-card" style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; background: var(--bg-hover);">
+            <input type="radio" name="sync-direction" value="merge" style="margin-top: 3px;">
+            <div>
+              <div style="font-weight: 600; font-size: 13px; color: var(--text-primary);">🔀 Smart Merge</div>
+              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">Combines songs from both lists without duplicating tracks.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancel-sync-conflict-modal" class="btn btn-secondary">Cancel</button>
+        <button id="confirm-sync-conflict-modal" class="btn btn-primary">Proceed with Sync</button>
       </div>
     </div>
   </div>
@@ -666,6 +715,11 @@
 
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="/app.js?v=7.6"></script>
+  <!-- YouTube Audio Engine Player -->
+  <div id="yt-player-container" style="position: fixed; bottom: -9999px; left: -9999px; width: 1px; height: 1px; opacity: 0.001; pointer-events: none;">
+    <div id="yt-audio-player"></div>
+  </div>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="/app.js?v=8.0"></script>
 </body>
 </html>

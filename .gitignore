@@ -43,3 +43,5 @@ session.json
 .pyinstaller_cache
 __pycache__/
 .venv/
+local_playlists.json
+
