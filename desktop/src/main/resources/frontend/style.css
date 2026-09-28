@@ -1936,6 +1936,16 @@ body.is-col-resizing * {
   background: rgba(29, 185, 84, 0.08) !important;
 }
 
+@keyframes locatePulse {
+  0% { background-color: rgba(29, 185, 84, 0.45); }
+  50% { background-color: rgba(29, 185, 84, 0.2); }
+  100% { background-color: transparent; }
+}
+
+.track-row.flash-locate {
+  animation: locatePulse 1.2s ease-out;
+}
+
 
 
 

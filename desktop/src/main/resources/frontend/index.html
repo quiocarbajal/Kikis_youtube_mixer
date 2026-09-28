@@ -108,19 +108,20 @@
               </div>
               <span id="track-count-badge" class="count-indicator">Loading tracks...</span>
             </div>
-            <div class="toolbar-top-actions">
-              <button id="clear-queue-btn" class="btn btn-sm btn-ghost" data-tooltip-title="Clear Workspace" data-tooltip="Empties the active workspace list without deleting songs from your library. Undoable with Cmd+Z.">
-                🗑️ Clear
-              </button>
-            </div>
           </div>
 
           <div class="toolbar-actions-row">
-            <button id="shuffle-active-list-btn" class="btn btn-sm shuffle-toggle-btn" data-tooltip-title="Real Random Shuffle" data-tooltip="This is a real random shuffle. It generates a completely new random order every time you activate it.">
-              🔀 True Shuffle
+            <button id="shuffle-active-list-btn" class="btn btn-sm shuffle-toggle-btn" data-tooltip-title="Shuffle" data-tooltip="Generates a completely new random order every time you activate it.">
+              🔀 Shuffle
+            </button>
+            <button id="locate-playing-btn" class="btn btn-sm btn-ghost" data-tooltip-title="Center on Playing Song" data-tooltip="Scroll the queue to center on the currently playing song.">
+              🎯 Center on Playing Song
             </button>
             <button id="reload-view-btn" class="btn btn-sm btn-ghost" data-tooltip-title="Reload Original List" data-tooltip="Reload the clean, complete list from your library/playlist, resetting temporary workspace changes.">
               🔄 Reload
+            </button>
+            <button id="clear-queue-btn" class="btn btn-sm btn-ghost" data-tooltip-title="Clear Workspace" data-tooltip="Empties the active workspace list without deleting songs from your library. Undoable with Cmd+Z.">
+              🗑️ Clear
             </button>
             <button id="save-as-playlist-btn" class="btn btn-sm btn-secondary" data-tooltip-title="Save as Playlist" data-tooltip="Save or overwrite a YouTube Music playlist with the songs currently in your workspace.">
               💾 Save as Playlist
@@ -193,7 +194,7 @@
             <img src="/icon.jpeg" alt="App Icon" style="width: 72px; height: 72px; object-fit: contain; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.5);">
             <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">Welcome to YouTube Music Player Studio</h2>
             <p style="font-size: 13px; color: var(--text-secondary); max-width: 420px; line-height: 1.5; margin-bottom: 20px;">
-              Connect your YouTube Music account with 1 click to load your liked songs, browse your playlists, and use True Shuffle.
+              Connect your YouTube Music account with 1 click to load your liked songs, browse your playlists, and use Shuffle.
             </p>
             <button id="hero-login-btn" class="btn btn-primary btn-lg" style="padding: 12px 28px; font-size: 14px; font-weight: 600;" data-tooltip-title="YouTube Music 1-Click Login" data-tooltip="Connect your YouTube Music account to start organizing and shuffling music.">
               🟢 1-Click Connect with YouTube Music
@@ -236,7 +237,7 @@
         <div class="panel-tabs-bar">
           <button id="tab-right-search" class="panel-tab-btn active" data-tooltip-title="YouTube Music Search" data-tooltip="Search and preview millions of tracks from YouTube Music's global catalog.">🔍 Search</button>
           <button id="tab-right-playlist" class="panel-tab-btn" data-tooltip-title="Browse Playlists" data-tooltip="Browse tracks from your other YouTube Music playlists to drag into your queue.">📑 Playlists</button>
-          <button id="tab-right-discovery" class="panel-tab-btn" data-tooltip-title="Surprise Me!" data-tooltip="Generate a smart discovery mix with multi-criteria AND/NOT seeds, strict negative exclusion filters, and true shuffle.">🎲 Surprise Me!</button>
+          <button id="tab-right-discovery" class="panel-tab-btn" data-tooltip-title="Surprise Me!" data-tooltip="Generate a smart discovery mix with multi-criteria AND/NOT seeds, strict negative exclusion filters, and shuffle.">🎲 Surprise Me!</button>
         </div>
 
         <!-- Search Input Controls & Modifiers -->
@@ -446,9 +447,9 @@
                 <label class="radio-pill"><input type="radio" name="disc-target-count" value="100"><span>100</span></label>
               </div>
             </div>
-            <label class="switch-row" style="margin-top: 4px;" data-tooltip-title="True Shuffle" data-tooltip="Applies cryptographic Fisher-Yates shuffle with anti-clumping so no consecutive songs from the same artist occur.">
+            <label class="switch-row" style="margin-top: 4px;" data-tooltip-title="Shuffle" data-tooltip="Applies cryptographic Fisher-Yates shuffle with anti-clumping so no consecutive songs from the same artist occur.">
               <input type="checkbox" id="disc-true-shuffle" checked>
-              <span class="switch-label">🔀 True Shuffle + Anti-Clumping</span>
+              <span class="switch-label">🔀 Shuffle + Anti-Clumping</span>
             </label>
             <button type="button" id="discovery-generate-btn" class="btn btn-primary btn-generate-discovery" data-tooltip-title="Generate Discovery Mix" data-tooltip="Runs the multi-strategy seed harvester and strict negative filter pipeline.">
               <span class="dice-icon">🎲</span> <span class="btn-text">Generate Discovery Mix</span>
@@ -470,7 +471,7 @@
               <button type="button" id="disc-replace-queue-btn" class="btn btn-sm btn-accent" data-tooltip-title="Replace Main Queue" data-tooltip="Clears all songs currently in your active listening queue and loads all newly discovered tracks.">
                 🔄 Replace Main Queue
               </button>
-              <button type="button" id="disc-replace-play-btn" class="btn btn-sm btn-secondary" data-tooltip-title="Replace & Play Immediately" data-tooltip="Clears current main queue, loads discovered tracks, and starts playback instantly with True Shuffle.">
+              <button type="button" id="disc-replace-play-btn" class="btn btn-sm btn-secondary" data-tooltip-title="Replace & Play Immediately" data-tooltip="Clears current main queue, loads discovered tracks, and starts playback instantly with Shuffle.">
                 ▶ Replace & Play
               </button>
               <button type="button" id="disc-append-queue-btn" class="btn btn-sm btn-secondary" data-tooltip-title="Append to Main Queue" data-tooltip="Adds all discovered tracks to the bottom of the main queue without removing existing songs.">
@@ -507,11 +508,14 @@
 
     <!-- Bottom Persistent Player Bar -->
     <footer id="player-bar">
-      <div class="player-left">
-        <div class="player-track-info" data-tooltip-title="Now Playing" data-tooltip="Shows the currently playing track and artist on YouTube Music.">
+      <div class="player-left" style="display: flex; align-items: center; gap: 8px;">
+        <div class="player-track-info" id="player-track-info" data-tooltip-title="Center on Playing Song" data-tooltip="Click to scroll and center the queue on this song." style="cursor: pointer;">
           <div id="player-title" class="player-title-text">Not Playing</div>
           <div id="player-artist" class="player-artist-text">Open YouTube Music on Mac or Android</div>
         </div>
+        <button id="player-locate-btn" class="icon-btn" data-tooltip-title="Center in Queue" data-tooltip="Scroll to center on the currently playing song in the queue." style="font-size: 13px; padding: 4px 6px; border-radius: 4px; opacity: 0.85;">
+          🎯
+        </button>
       </div>
 
       <div class="player-center">
@@ -549,7 +553,7 @@
   <div id="custom-context-menu" class="context-menu hidden">
     <div class="context-item" id="ctx-play-now">▶ Play from Here</div>
     <div class="context-item" id="ctx-toggle-like">💚 Save to Liked Songs</div>
-    <div class="context-item" id="ctx-true-shuffle">🔀 True Shuffle Selected</div>
+    <div class="context-item" id="ctx-true-shuffle">🔀 Shuffle Selected</div>
     <div class="context-item" id="ctx-make-playlist">➕ Make YouTube Music Playlist...</div>
     <div class="context-divider"></div>
     <div class="context-item danger" id="ctx-remove-from-list">🗑️ Remove Selected from List</div>
@@ -674,7 +678,7 @@
           <h4>Playback Preferences</h4>
           <label class="checkbox-label">
             <input type="checkbox" id="setting-avoid-artists" checked>
-            <span>Anti-Clumping: Avoid consecutive songs by the same artist during True Shuffle</span>
+            <span>Anti-Clumping: Avoid consecutive songs by the same artist during Shuffle</span>
           </label>
         </div>
 

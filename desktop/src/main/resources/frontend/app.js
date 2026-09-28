@@ -99,6 +99,7 @@ const DOM = {
   trackCountBadge: document.getElementById('track-count-badge'),
   playActiveListBtn: document.getElementById('play-active-list-btn'),
   shuffleActiveListBtn: document.getElementById('shuffle-active-list-btn'),
+  locatePlayingBtn: document.getElementById('locate-playing-btn'),
   saveAsPlaylistBtn: document.getElementById('save-as-playlist-btn'),
   resetOrderBtn: document.getElementById('reset-order-btn'),
   saveOrderBtn: document.getElementById('save-order-btn'),
@@ -193,6 +194,8 @@ const DOM = {
   // Bottom Player Bar
   playerTitle: document.getElementById('player-title'),
   playerArtist: document.getElementById('player-artist'),
+  playerTrackInfo: document.getElementById('player-track-info'),
+  playerLocateBtn: document.getElementById('player-locate-btn'),
   ctrlPrev: document.getElementById('ctrl-prev'),
   ctrlPlaypause: document.getElementById('ctrl-playpause'),
   ctrlNext: document.getElementById('ctrl-next'),
@@ -265,7 +268,7 @@ const I18N = {
     syncStageFetchingPlaylists: 'Fetching your Spotify playlists...',
     syncStageDone: '✅ Library synced successfully!',
     connectHeroTitle: "Welcome to Kiki's Spotify Mixer",
-    connectHeroDesc: 'Connect your Spotify account with 1 click to load your liked songs, browse your playlists, and use True Shuffle.',
+    connectHeroDesc: 'Connect your Spotify account with 1 click to load your liked songs, browse your playlists, and use Shuffle.',
     connectHeroBtn: '🟢 1-Click Connect with Spotify',
     connectPromptPlaylists: 'Connect Spotify to load your playlists.',
     settingsBtn: 'Settings & Setup',
@@ -287,7 +290,7 @@ const I18N = {
     queueSubtextDefault: 'These are the songs you will hear when you hit play.',
     queueSubtextWithCount: 'These {count} tracks will play in order when you click Play.',
     playListBtn: '▶ Play List',
-    trueShuffleBtn: '🔀 True Shuffle',
+    trueShuffleBtn: '🔀 Shuffle',
     saveAsPlaylistBtn: '💾 Save as Playlist',
     unlockedBtn: '🔓 Unlocked',
     lockedBtn: '🔒 Locked',
@@ -330,7 +333,7 @@ const I18N = {
     ctxPlayFromHere: '▶ Play from Here',
     ctxSaveToLiked: '💚 Save to Liked Songs',
     ctxRemoveFromLiked: '🤍 Remove from Liked Songs',
-    ctxTrueShuffleSelected: '🔀 True Shuffle Selected',
+    ctxTrueShuffleSelected: '🔀 Shuffle Selected',
     ctxMakePlaylist: '➕ Make Spotify Playlist...',
     ctxRemoveFromList: '🗑️ Remove Selected from List',
     ctxKeepOnlySelected: '🎯 Keep Only Selected (Remove Others)',
@@ -362,8 +365,8 @@ const I18N = {
     tipResizeSidebar: 'Click and drag horizontally to resize sidebar width.',
     tipPlayListTitle: 'Play Active List',
     tipPlayList: 'Starts continuous playback from the first track in this active list.',
-    tipShuffleTitle: 'Real Random Shuffle',
-    tipShuffle: 'This is a real random shuffle. It generates a completely new random order every time you activate it.',
+    tipShuffleTitle: 'Shuffle',
+    tipShuffle: 'Generates a completely new random order every time you activate it.',
     reloadViewBtn: '🔄 Reload',
     tipReloadTitle: 'Reload Original List',
     tipReload: 'Reload the clean, complete list from your library/playlist, resetting temporary workspace changes.',
@@ -476,7 +479,7 @@ const I18N = {
     discRemixOnlyLabel: '🎛️ ONLY Remix',
     lowPopularityLabel: '💎 Low Popularity Only (Hidden Gems)',
     targetTracksLabel: 'Target Tracks:',
-    trueShuffleAntiClumpLabel: '🔀 True Shuffle + Anti-Clumping',
+    trueShuffleAntiClumpLabel: '🔀 Shuffle + Anti-Clumping',
     generateDiscoveryBtn: 'Generate Discovery Mix',
     generatingDiscoveryBtn: 'Generating Mix...',
     replaceMainQueueBtn: '🔄 Replace Main Queue',
@@ -488,7 +491,7 @@ const I18N = {
     discoveryToastReplaced: '🔄 Replaced active listening queue with {count} discovery tracks',
     discoveryToastAppended: '➕ Added {count} discovery tracks to the bottom of the active queue',
     tipDiscoveryTabTitle: 'Surprise Me!',
-    tipDiscoveryTab: 'Generate a smart discovery mix with multi-criteria AND/NOT seeds, strict negative exclusion filters, and true shuffle.',
+    tipDiscoveryTab: 'Generate a smart discovery mix with multi-criteria AND/NOT seeds, strict negative exclusion filters, and shuffle.',
     tipArtistModTitle: 'Artist Modifier',
     tipArtistMod: 'Toggle between [+ AND] (include artists) and [- NOT] (exclude artists).',
     tipGenreModTitle: 'Genre Modifier',
@@ -518,7 +521,7 @@ const I18N = {
     tipReplaceQueueTitle: 'Replace Main Queue',
     tipReplaceQueue: 'Clears all songs currently in your active listening queue and loads all newly discovered tracks.',
     tipReplacePlayTitle: 'Replace & Play Immediately',
-    tipReplacePlay: 'Clears current main queue, loads discovered tracks, and starts playback instantly with True Shuffle.',
+    tipReplacePlay: 'Clears current main queue, loads discovered tracks, and starts playback instantly with Shuffle.',
     tipAppendQueueTitle: 'Append to Main Queue',
     tipAppendQueue: 'Adds all discovered tracks to the bottom of the main queue without removing existing songs.',
     tipAppendSelectedTitle: 'Append Selected Tracks',
@@ -539,7 +542,7 @@ const I18N = {
     syncStageFetchingPlaylists: 'Obteniendo tus playlists de Spotify...',
     syncStageDone: '✅ ¡Biblioteca sincronizada con éxito!',
     connectHeroTitle: "Bienvenido a Kiki's Spotify Mixer",
-    connectHeroDesc: 'Conecta tu cuenta de Spotify con 1 clic para cargar tus canciones guardadas, explorar tus playlists y usar Aleatorio Real.',
+    connectHeroDesc: 'Conecta tu cuenta de Spotify con 1 clic para cargar tus canciones guardadas, explorar tus playlists y usar el modo Aleatorio.',
     connectHeroBtn: '🟢 Conectar con Spotify en 1 clic',
     connectPromptPlaylists: 'Conecta Spotify para cargar tus playlists.',
     settingsBtn: 'Configuración',
@@ -561,7 +564,7 @@ const I18N = {
     queueSubtextDefault: 'Estas son las canciones que escucharás al darle a Reproducir.',
     queueSubtextWithCount: 'Estas {count} canciones se reproducirán en orden al hacer clic en Reproducir.',
     playListBtn: '▶ Reproducir lista',
-    trueShuffleBtn: '🔀 Aleatorio Real',
+    trueShuffleBtn: '🔀 Aleatorio',
     saveAsPlaylistBtn: '💾 Guardar como lista',
     unlockedBtn: '🔓 Desbloqueado',
     lockedBtn: '🔒 Bloqueado',
@@ -604,7 +607,7 @@ const I18N = {
     ctxPlayFromHere: '▶ Reproducir desde aquí',
     ctxSaveToLiked: '💚 Guardar en Canciones que te gustan',
     ctxRemoveFromLiked: '🤍 Quitar de Canciones que te gustan',
-    ctxTrueShuffleSelected: '🔀 Aleatorio Real de seleccionadas',
+    ctxTrueShuffleSelected: '🔀 Aleatorio de seleccionadas',
     ctxMakePlaylist: '➕ Crear playlist en Spotify...',
     ctxRemoveFromList: '🗑️ Quitar seleccionadas de la lista',
     ctxKeepOnlySelected: '🎯 Mantener solo seleccionadas (Quitar las demás)',
@@ -636,8 +639,8 @@ const I18N = {
     tipResizeSidebar: 'Haz clic y arrastra horizontalmente para cambiar el ancho de la barra lateral.',
     tipPlayListTitle: 'Reproducir lista activa',
     tipPlayList: 'Inicia la reproducción continua desde la primera canción de esta lista activa.',
-    tipShuffleTitle: 'Aleatorio real',
-    tipShuffle: 'Este es un modo aleatorio real. Genera un orden aleatorio totalmente nuevo cada vez que lo activas.',
+    tipShuffleTitle: 'Aleatorio',
+    tipShuffle: 'Este es un modo aleatorio. Genera un orden aleatorio totalmente nuevo cada vez que lo activas.',
     reloadViewBtn: '🔄 Recargar',
     tipReloadTitle: 'Recargar Lista Original',
     tipReload: 'Recarga la lista limpia y completa desde tu biblioteca o playlist, descartando cambios temporales.',
@@ -675,7 +678,7 @@ const I18N = {
     tipCreatePlaylistTitle: 'Crear playlist en Spotify',
     tipCreatePlaylist: 'Exporta todas las canciones seleccionadas a una nueva playlist en tu cuenta de Spotify.',
     tipShuffleSelectedTitle: 'Mezclar selección',
-    tipShuffleSelected: 'Este es un modo aleatorio real. Mezcla las canciones seleccionadas cada vez que lo activas.',
+    tipShuffleSelected: 'Mezcla las canciones seleccionadas cada vez que lo activas.',
     tipDeselectAllTitle: 'Deseleccionar todo',
     tipDeselectAll: 'Borra la selección de canciones.',
     tipResizeRightTitle: 'Redimensionar panel derecho',
@@ -750,7 +753,7 @@ const I18N = {
     discRemixOnlyLabel: '🎛️ Solo Remix',
     lowPopularityLabel: '💎 Solo baja popularidad (Joyas ocultas)',
     targetTracksLabel: 'Canciones Objetivo:',
-    trueShuffleAntiClumpLabel: '🔀 Aleatorio Real + Anti-Repetición',
+    trueShuffleAntiClumpLabel: '🔀 Aleatorio + Anti-Repetición',
     generateDiscoveryBtn: 'Generar Mezcla de Descubrimiento',
     generatingDiscoveryBtn: 'Generando Mezcla...',
     replaceMainQueueBtn: '🔄 Reemplazar Cola Principal',
@@ -762,7 +765,7 @@ const I18N = {
     discoveryToastReplaced: '🔄 Se reemplazó la cola activa con {count} canciones de descubrimiento',
     discoveryToastAppended: '➕ Se agregaron {count} canciones de descubrimiento al final de la cola',
     tipDiscoveryTabTitle: '¡Sorpréndeme!',
-    tipDiscoveryTab: 'Genera una mezcla inteligente de descubrimiento con semillas AND/NOT, filtros estrictos de exclusión y aleatorio real.',
+    tipDiscoveryTab: 'Genera una mezcla inteligente de descubrimiento con semillas AND/NOT, filtros estrictos de exclusión y modo aleatorio.',
     tipArtistModTitle: 'Modificador de Artista',
     tipArtistMod: 'Alterna entre [+ Y] (incluir artistas) y [- NO] (excluir artistas).',
     tipGenreModTitle: 'Modificador de Género',
@@ -792,7 +795,7 @@ const I18N = {
     tipReplaceQueueTitle: 'Reemplazar Cola Principal',
     tipReplaceQueue: 'Borra todas las canciones de tu cola activa y carga todas las canciones recién descubiertas.',
     tipReplacePlayTitle: 'Reemplazar y Reproducir Inmediatamente',
-    tipReplacePlay: 'Borra la cola principal, carga las canciones descubiertas e inicia la reproducción al instante con Aleatorio Real.',
+    tipReplacePlay: 'Borra la cola principal, carga las canciones descubiertas e inicia la reproducción al instante en modo aleatorio.',
     tipAppendQueueTitle: 'Agregar a la Cola Principal',
     tipAppendQueue: 'Agrega todas las canciones descubiertas al final de la cola principal sin borrar las existentes.',
     tipAppendSelectedTitle: 'Agregar Canciones Seleccionadas',
@@ -910,6 +913,19 @@ function applyLanguage(lang) {
     DOM.shuffleActiveListBtn.textContent = t('trueShuffleBtn');
     DOM.shuffleActiveListBtn.setAttribute('data-tooltip-title', t('tipShuffleTitle'));
     DOM.shuffleActiveListBtn.setAttribute('data-tooltip', t('tipShuffle'));
+  }
+  if (DOM.locatePlayingBtn) {
+    DOM.locatePlayingBtn.textContent = state.currentLang === 'es' ? '🎯 Centrar en canción en curso' : '🎯 Center on Playing Song';
+    DOM.locatePlayingBtn.setAttribute('data-tooltip-title', state.currentLang === 'es' ? 'Centrar en canción' : 'Center on Playing Song');
+    DOM.locatePlayingBtn.setAttribute('data-tooltip', state.currentLang === 'es' ? 'Desplazar la cola para centrar la canción actualmente en reproducción.' : 'Scroll the queue to center on the currently playing song.');
+  }
+  if (DOM.playerLocateBtn) {
+    DOM.playerLocateBtn.setAttribute('data-tooltip-title', state.currentLang === 'es' ? 'Centrar en cola' : 'Center in Queue');
+    DOM.playerLocateBtn.setAttribute('data-tooltip', state.currentLang === 'es' ? 'Desplazar la lista para centrar la canción en reproducción.' : 'Scroll to center on the currently playing song in the queue.');
+  }
+  if (DOM.playerTrackInfo) {
+    DOM.playerTrackInfo.setAttribute('data-tooltip-title', state.currentLang === 'es' ? 'Centrar en canción' : 'Center on Playing Song');
+    DOM.playerTrackInfo.setAttribute('data-tooltip', state.currentLang === 'es' ? 'Haz clic para centrar la cola en esta canción.' : 'Click to scroll and center the queue on this song.');
   }
   if (DOM.reloadViewBtn) {
     DOM.reloadViewBtn.textContent = t('reloadViewBtn');
@@ -3460,7 +3476,7 @@ async function generateDiscoveryMix() {
 
   DOM.discoveryResultsSection?.classList.remove('hidden');
   if (DOM.discoveryItemsContainer) {
-    DOM.discoveryItemsContainer.innerHTML = '<div class="search-placeholder-text">🎲 Harvesting music candidates, applying strict NOT filters & True Shuffle...</div>';
+    DOM.discoveryItemsContainer.innerHTML = '<div class="search-placeholder-text">🎲 Harvesting music candidates, applying strict NOT filters & Shuffle...</div>';
   }
 
   const payload = {
@@ -3964,13 +3980,8 @@ function updatePlayerUI(data) {
       }
     });
 
-    // Auto-scroll to center
-    if (state.autoScrollLocked) {
-      const activeRow = DOM.tracksTbody.querySelector('.track-row.now-playing-row');
-      if (activeRow) {
-        activeRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
+    // User can freely scroll up and down the main queue while playing.
+    // Centering is controlled via the dedicated '🎯 Center on Playing Song' button.
   } else {
     state.currentPlayingTrackId = null;
     state.currentPlayingTrackTitle = null;
@@ -3985,6 +3996,22 @@ function updatePlayerUI(data) {
       btn.textContent = '▶';
       btn.title = state.currentLang === 'es' ? 'Reproducir canción' : 'Play track';
     });
+  }
+}
+
+// --- Center on Playing Song ---
+function centerOnPlayingSong() {
+  const activeRow = DOM.tracksTbody?.querySelector('.track-row.now-playing-row');
+  if (activeRow) {
+    activeRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    activeRow.classList.add('flash-locate');
+    setTimeout(() => activeRow.classList.remove('flash-locate'), 1200);
+  } else if (state.currentPlayingTrackId) {
+    const isEs = state.currentLang === 'es';
+    showToast(isEs ? 'ℹ️ La canción en reproducción no está en la vista actual' : 'ℹ️ Playing song is not in the currently displayed view', 'info');
+  } else {
+    const isEs = state.currentLang === 'es';
+    showToast(isEs ? 'ℹ️ No hay ninguna canción reproduciéndose' : 'ℹ️ No song is currently playing', 'info');
   }
 }
 
@@ -4240,6 +4267,7 @@ function initEventListeners() {
   // Main Toolbar Buttons
   DOM.playActiveListBtn?.addEventListener('click', () => playFromIndex(0));
   DOM.shuffleActiveListBtn?.addEventListener('click', toggleTrueShuffle);
+  DOM.locatePlayingBtn?.addEventListener('click', centerOnPlayingSong);
   DOM.reloadViewBtn?.addEventListener('click', () => {
     loadTracks();
     showToast('🔄 Reloaded original list from library');
@@ -4279,7 +4307,7 @@ function initEventListeners() {
       method: 'POST',
       body: JSON.stringify({ uris: uris, true_shuffle: true, device_id: DOM.deviceSelect?.value || null })
     });
-    showToast(`🔀 True Shuffled ${uris.length} selected tracks`);
+    showToast(`🔀 Shuffled ${uris.length} selected tracks`);
   });
 
   DOM.clearSelectionBtn?.addEventListener('click', () => {
@@ -4288,6 +4316,8 @@ function initEventListeners() {
   });
 
   // Player Controls
+  DOM.playerLocateBtn?.addEventListener('click', centerOnPlayingSong);
+  DOM.playerTrackInfo?.addEventListener('click', centerOnPlayingSong);
   DOM.ctrlPlaypause?.addEventListener('click', async () => {
     if (ytAudioPlayer && typeof ytAudioPlayer.getPlayerState === 'function') {
       const pState = ytAudioPlayer.getPlayerState();
