@@ -62,6 +62,16 @@ class ActiveQueueManager(
         }
     }
 
+    fun skipToIndex(index: Int) {
+        updateState {
+            if (index in 0 until it.tracks.size) {
+                it.copy(currentIndex = index)
+            } else {
+                it
+            }
+        }
+    }
+
     fun moveTrack(fromIndex: Int, toIndex: Int) {
         updateState { state ->
             val list = state.tracks.toMutableList()

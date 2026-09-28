@@ -3,10 +3,10 @@ package com.quio.ytm.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // YouTube Music Brand Accents
-val YoutubeRed = Color(0xFFFF0033)
-val YoutubeRedHover = Color(0xFFFF3B30)
-val SelectedBg = Color(0xFF381A1D)
-val SelectedBorder = Color(0xFFFF3B30)
+val YoutubeRed = Color(0xFFD82222)
+val YoutubeRedHover = Color(0xFFE53935)
+val SelectedBg = Color(0xFF22080A)
+val SelectedBorder = Color(0xFFD82222)
 
 // Surface & Background Layers (matching macOS YouTube Music Mixer palette)
 val BgMain = Color(0xFF121212)

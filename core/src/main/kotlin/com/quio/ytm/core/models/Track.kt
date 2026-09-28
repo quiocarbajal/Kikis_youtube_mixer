@@ -10,7 +10,7 @@ data class Track(
     val album: String,
     val durationMs: Long,
     val thumbnailUrl: String,
-    val loudnessDb: Double, // Critical for our -14 LUFS normalizer
+    val loudnessDb: Double = -14.0, // Critical for our -14 LUFS normalizer
     val likedAt: Long? = null, // Used for sorting the "Liked Songs" view, null if not liked
     val syncedYoutubeId: String? = null, // If it's part of a specific synced playlist
     val isDownloaded: Boolean = false
