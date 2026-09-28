@@ -1,5 +1,5 @@
 /**
- * Kiki's Spotify Mixer - Client Application
+ * YouTube Music Player Studio - Client Application
  */
 
 const state = {
@@ -64,7 +64,7 @@ const state = {
   isSyncing: false,
   hasSyncedTracks: false,
   likedTrackIds: new Set(),
-  currentLang: localStorage.getItem('kiki_spotify_lang') || 'es'
+  currentLang: localStorage.getItem('kiki_ytm_lang') || 'es'
 };
 
 const DOM = {
@@ -125,7 +125,7 @@ const DOM = {
   batchShuffleBtn: document.getElementById('batch-shuffle-btn'),
   clearSelectionBtn: document.getElementById('clear-selection-btn'),
   
-  // Right Panel: Dual Source Browser & Spotify Search & Surprise Me
+  // Right Panel: Dual Source Browser & YouTube Music Search & Surprise Me
   tabRightSearch: document.getElementById('tab-right-search'),
   tabRightPlaylist: document.getElementById('tab-right-playlist'),
   tabRightDiscovery: document.getElementById('tab-right-discovery'),
@@ -257,20 +257,20 @@ const I18N = {
     appSubBadge: 'Queue & Mix Studio',
     filterPlaceholder: 'Filter active list... (Keyboard shortcut: /)',
     clearFilter: 'Clear Filter',
-    loginBtn: 'Log in with Spotify',
+    loginBtn: 'Log in with YouTube Music',
     loginNeeded: 'Not Logged',
     syncBtn: 'Sync Library',
     syncingBtn: 'Syncing...',
-    syncHeroTitle: 'Syncing your Spotify Library...',
-    syncHeroDesc: 'Connecting to Spotify and downloading your Liked Songs and playlists. Please wait a moment...',
-    syncStageFetchingLiked: 'Fetching Liked Songs from Spotify...',
+    syncHeroTitle: 'Syncing your YouTube Music Library...',
+    syncHeroDesc: 'Connecting to YouTube Music and downloading your Liked Songs and playlists. Please wait a moment...',
+    syncStageFetchingLiked: 'Fetching Liked Songs from YouTube Music...',
     syncStageSavingLiked: 'Saving Liked Songs to library...',
-    syncStageFetchingPlaylists: 'Fetching your Spotify playlists...',
+    syncStageFetchingPlaylists: 'Fetching your YouTube Music playlists...',
     syncStageDone: '✅ Library synced successfully!',
-    connectHeroTitle: "Welcome to Kiki's Spotify Mixer",
-    connectHeroDesc: 'Connect your Spotify account with 1 click to load your liked songs, browse your playlists, and use Shuffle.',
-    connectHeroBtn: '🟢 1-Click Connect with Spotify',
-    connectPromptPlaylists: 'Connect Spotify to load your playlists.',
+    connectHeroTitle: "Welcome to YouTube Music Player Studio",
+    connectHeroDesc: 'Connect your YouTube Music account with 1 click to load your liked songs, browse your playlists, and use Shuffle.',
+    connectHeroBtn: '🟢 1-Click Connect with YouTube Music',
+    connectPromptPlaylists: 'Connect YouTube Music to load your playlists.',
     settingsBtn: 'Settings & Setup',
     checking: 'Checking...',
     connected: 'Connected',
@@ -299,7 +299,7 @@ const I18N = {
     
     // Floating Bar
     selectedCount: '🟢 {count} track{s} selected',
-    makePlaylistBtn: '➕ Make Spotify Playlist',
+    makePlaylistBtn: '➕ Make YouTube Music Playlist',
     shuffleSelectedBtn: '🔀 Shuffle Selected',
     clearEsc: 'Clear (Esc)',
     
@@ -311,10 +311,10 @@ const I18N = {
     colDuration: '⏱️',
     
     // Right Panel
-    tabSpotifySearch: '🔍 Spotify Search',
+    tabSearch: '🔍 Search',
     tabBrowseList: '📑 Browse Playlists',
     tabDiscovery: '🎲 Surprise Me!',
-    searchCatalogPlaceholder: 'Search Spotify catalog...',
+    searchCatalogPlaceholder: 'Search YouTube Music catalog...',
     searchBtn: 'Search',
     modAll: 'All',
     modSong: '🎵 Song',
@@ -322,11 +322,11 @@ const I18N = {
     modLyrics: '📜 Lyrics',
     selectPlaylistOption: 'Select Playlist to Browse...',
     addSelectedBtn: '➕ Add to Main List',
-    rightSearchPlaceholder: 'Type above to search Spotify or choose a playlist to browse songs.',
+    rightSearchPlaceholder: 'Type above to search YouTube Music or choose a playlist to browse songs.',
     
     // Player
     notPlaying: 'Not Playing',
-    openSpotifyPrompt: 'Open Spotify on Mac or Android',
+    openPlayerPrompt: 'Open YouTube Music on Mac or Android',
     selectDevicePrompt: '📱 Select Device',
     
     // Context Menu
@@ -334,7 +334,7 @@ const I18N = {
     ctxSaveToLiked: '💚 Save to Liked Songs',
     ctxRemoveFromLiked: '🤍 Remove from Liked Songs',
     ctxTrueShuffleSelected: '🔀 Shuffle Selected',
-    ctxMakePlaylist: '➕ Make Spotify Playlist...',
+    ctxMakePlaylist: '➕ Make YouTube Music Playlist...',
     ctxRemoveFromList: '🗑️ Remove Selected from List',
     ctxKeepOnlySelected: '🎯 Keep Only Selected (Remove Others)',
     toastRemovedFromList: '🗑️ Removed {count} track{s} from active list (Cmd+Z to undo)',
@@ -349,16 +349,16 @@ const I18N = {
     tipSearchInput: "Press the '/' key anytime to immediately search and filter visible tracks without clicking.",
     tipClearFilterTitle: 'Clear Filter',
     tipClearFilter: 'Reset search filter and show all tracks.',
-    tipLoginTitle: 'Spotify Login',
-    tipLogin: 'Connect your Spotify account to load playlists and control playback.',
+    tipLoginTitle: 'YouTube Music Login',
+    tipLogin: 'Connect your YouTube Music account to load playlists and control playback.',
     tipSyncTitle: 'Sync Library',
-    tipSync: 'Fetch latest liked songs, playlists, and track metadata from Spotify.',
+    tipSync: 'Fetch latest liked songs, playlists, and track metadata from YouTube Music.',
     tipSettingsTitle: 'Settings & Setup',
-    tipSettings: 'Spotify account settings, developer credentials, and anti-clumping options.',
-    tipConnectionTitle: 'Spotify Connection',
-    tipConnection: 'Displays connection state to Spotify Web API and local desktop app.',
+    tipSettings: 'YouTube Music account settings, developer credentials, and anti-clumping options.',
+    tipConnectionTitle: 'Audio Deviceion',
+    tipConnection: 'Displays connection state to YouTube Music API and local desktop app.',
     tipLikedSongsTitle: 'Liked Songs',
-    tipLikedSongs: 'All songs saved to your Spotify Liked Songs library.',
+    tipLikedSongs: 'All songs saved to your Liked Songs library.',
     tipAllTracksTitle: 'All Tracks',
     tipAllTracks: 'Consolidated master list of all synced songs across your library.',
     tipResizeSidebarTitle: 'Resize Sidebar',
@@ -375,7 +375,7 @@ const I18N = {
     tipClearQueue: 'Empties the active workspace list without deleting songs from your library. Undoable with Cmd+Z.',
     discPlayDirectBtn: '▶ Play Mix',
     tipDiscPlayDirectTitle: 'Play Discovery Mix',
-    tipDiscPlayDirect: 'Plays all discovered tracks directly in Spotify without modifying your main workspace queue.',
+    tipDiscPlayDirect: 'Plays all discovered tracks directly in YouTube Music without modifying your main workspace queue.',
     tipLockOrderTitle: 'Order Lock',
     tipLockOrder: 'Toggle locking to prevent accidental drag reordering or shuffling.',
     tipResetOrderTitle: 'Reset Sequence',
@@ -383,12 +383,12 @@ const I18N = {
     tipSaveOrderTitle: 'Save Sequence',
     tipSaveOrder: 'Save the current column-sorted list as your permanent custom order.',
     tipSaveAsPlaylistTitle: 'Save as Playlist',
-    tipSaveAsPlaylistActive: 'Save this unique list of {count} songs as a new Spotify playlist.',
+    tipSaveAsPlaylistActive: 'Save this unique list of {count} songs as a new YouTube Music playlist.',
     tipSaveAsPlaylistExistsTitle: 'Playlist Already Exists',
     tipSaveAsPlaylistExists: 'This exact list and song order matches "{name}".',
     tipSaveAsPlaylistEmpty: 'The active list has no songs to save.',
     tipQueueInfoTitle: 'Active Listening Queue',
-    tipQueueInfo: 'When you click ▶ Play List or press Space, Spotify plays these songs in the order they are shown below.',
+    tipQueueInfo: 'When you click ▶ Play List or press Space, YouTube Music plays these songs in the order they are shown below.',
     tipSelectAllTitle: 'Select All',
     tipSelectAll: 'Toggle selection of all visible tracks in the list.',
     tipSortNumTitle: 'Sort by Number',
@@ -401,22 +401,22 @@ const I18N = {
     tipSortAlbum: 'Sort tracks alphabetically by album name.',
     tipSortDurationTitle: 'Sort by Duration',
     tipSortDuration: 'Sort tracks from shortest to longest duration.',
-    tipCreatePlaylistTitle: 'Create Spotify Playlist',
-    tipCreatePlaylist: 'Export all currently selected tracks to a brand new Spotify playlist.',
+    tipCreatePlaylistTitle: 'Create YouTube Music Playlist',
+    tipCreatePlaylist: 'Export all currently selected tracks to a brand new YouTube Music playlist.',
     tipShuffleSelectedTitle: 'Shuffle Selection',
     tipShuffleSelected: 'This is a real random shuffle. It randomizes the selected songs every time you activate it.',
     tipDeselectAllTitle: 'Deselect All',
     tipDeselectAll: 'Clear track selection.',
     tipResizeRightTitle: 'Resize Right Panel',
     tipResizeRight: 'Click and drag horizontally to resize right panel width.',
-    tipSearchTabTitle: 'Spotify Search',
-    tipSearchTab: "Search and preview millions of tracks from Spotify's global catalog.",
+    tipSearchTabTitle: 'YouTube Music Search',
+    tipSearchTab: "Search and preview millions of tracks from YouTube Music's global catalog.",
     tipBrowseTabTitle: 'Browse Playlists',
-    tipBrowseTab: 'Browse tracks from your other Spotify playlists to drag into your queue.',
+    tipBrowseTab: 'Browse tracks from your other YouTube Music playlists to drag into your queue.',
     tipSearchCatalogTitle: 'Search Catalog',
-    tipSearchCatalog: 'Enter song titles, artist names, or lyrics to search Spotify.',
+    tipSearchCatalog: 'Enter song titles, artist names, or lyrics to search YouTube Music.',
     tipRunSearchTitle: 'Run Search',
-    tipRunSearch: 'Query Spotify for matching tracks.',
+    tipRunSearch: 'Query YouTube Music for matching tracks.',
     tipModAllTitle: 'All Fields',
     tipModAll: 'Search across track titles, artists, and albums simultaneously.',
     tipModSongTitle: 'Song Titles Only',
@@ -424,29 +424,29 @@ const I18N = {
     tipModArtistTitle: 'Artists Only',
     tipModArtist: 'Filter query results strictly by artist name.',
     tipModLyricsTitle: 'Lyric Search',
-    tipModLyrics: 'Search Spotify catalog by lyrics and spoken phrases.',
+    tipModLyrics: 'Search YouTube Music catalog by lyrics and spoken phrases.',
     tipSelectPlaylistTitle: 'Select Playlist',
-    tipSelectPlaylist: 'Choose one of your Spotify playlists to view and drag tracks from.',
+    tipSelectPlaylist: 'Choose one of your YouTube Music playlists to view and drag tracks from.',
     tipAddSelectedTitle: 'Add to Main List',
     tipAddSelected: 'Append selected songs from the right panel directly into your active list.',
     tipNowPlayingTitle: 'Now Playing',
-    tipNowPlaying: 'Shows the currently playing track and artist on Spotify.',
+    tipNowPlaying: 'Shows the currently playing track and artist on YouTube Music.',
     tipPrevTitle: 'Previous Track',
     tipPrev: 'Play the previous song in queue.',
     tipPlayPauseTitle: 'Play / Pause',
-    tipPlayPause: 'Toggle playback on Spotify.',
+    tipPlayPause: 'Toggle playback on YouTube Music.',
     tipNextTitle: 'Next Track',
     tipNext: 'Skip to the next song in queue.',
     tipVolumeTitle: 'Volume',
-    tipVolume: 'Adjust Spotify streaming volume level.',
+    tipVolume: 'Adjust YouTube Music streaming volume level.',
     tipDeviceTitle: 'Playback Device',
-    tipDevice: 'Select active Spotify Connect output device (Mac, Phone, Speaker).',
+    tipDevice: 'Select active Audio Device output device (Mac, Phone, Speaker).',
     tipPlayTrackTitle: 'Play Track',
-    tipPlayTrack: 'Play this track directly in Spotify and queue remaining songs.',
+    tipPlayTrack: 'Play this track directly in YouTube Music and queue remaining songs.',
     tipPauseTrackTitle: 'Pause Track',
-    tipPauseTrack: 'Pause current playback in Spotify.',
+    tipPauseTrack: 'Pause current playback in YouTube Music.',
     tipResumeTrackTitle: 'Resume Track',
-    tipResumeTrack: 'Resume playing this track in Spotify.',
+    tipResumeTrack: 'Resume playing this track in YouTube Music.',
     
     // Discovery Engine
     discoveryPanelHeading: 'Discovery Engine',
@@ -507,7 +507,7 @@ const I18N = {
     tipNotLikedTitle: 'NOT in Liked Songs',
     tipNotLiked: 'Guarantees 100% brand new music by excluding every song in your Liked Songs library.',
     tipNotInPlaylistsTitle: 'NOT in Any Playlist',
-    tipNotInPlaylists: 'Excludes any song that is already saved in any of your Spotify playlists.',
+    tipNotInPlaylists: 'Excludes any song that is already saved in any of your YouTube Music playlists.',
     tipNotRecentTitle: 'NOT Recently Played',
     tipNotRecent: 'Excludes songs played within the last 7 or 30 days.',
     tipLiveNotTitle: 'NOT Live',
@@ -531,20 +531,20 @@ const I18N = {
     appSubBadge: 'Estudio de Mezcla y Cola',
     filterPlaceholder: 'Filtrar lista activa... (Atajo de teclado: /)',
     clearFilter: 'Borrar filtro',
-    loginBtn: 'Iniciar sesión con Spotify',
+    loginBtn: 'Iniciar sesión con YouTube Music',
     loginNeeded: 'No conectado',
     syncBtn: 'Sincronizar biblioteca',
     syncingBtn: 'Sincronizando...',
-    syncHeroTitle: 'Sincronizando tu biblioteca de Spotify...',
-    syncHeroDesc: 'Conectando a Spotify y descargando tus canciones guardadas y playlists. Por favor espera un momento...',
-    syncStageFetchingLiked: 'Obteniendo canciones guardadas de Spotify...',
+    syncHeroTitle: 'Sincronizando tu biblioteca de YouTube Music...',
+    syncHeroDesc: 'Conectando a YouTube Music y descargando tus canciones guardadas y playlists. Por favor espera un momento...',
+    syncStageFetchingLiked: 'Obteniendo canciones guardadas de YouTube Music...',
     syncStageSavingLiked: 'Guardando canciones en la biblioteca local...',
-    syncStageFetchingPlaylists: 'Obteniendo tus playlists de Spotify...',
+    syncStageFetchingPlaylists: 'Obteniendo tus playlists de YouTube Music...',
     syncStageDone: '✅ ¡Biblioteca sincronizada con éxito!',
-    connectHeroTitle: "Bienvenido a Kiki's Spotify Mixer",
-    connectHeroDesc: 'Conecta tu cuenta de Spotify con 1 clic para cargar tus canciones guardadas, explorar tus playlists y usar el modo Aleatorio.',
-    connectHeroBtn: '🟢 Conectar con Spotify en 1 clic',
-    connectPromptPlaylists: 'Conecta Spotify para cargar tus playlists.',
+    connectHeroTitle: "Bienvenido a YouTube Music Player Studio",
+    connectHeroDesc: 'Conecta tu cuenta de YouTube Music con 1 clic para cargar tus canciones guardadas, explorar tus playlists y usar el modo Aleatorio.',
+    connectHeroBtn: '🟢 Conectar con YouTube Music en 1 clic',
+    connectPromptPlaylists: 'Conecta YouTube Music para cargar tus playlists.',
     settingsBtn: 'Configuración',
     checking: 'Comprobando...',
     connected: 'Conectado',
@@ -573,7 +573,7 @@ const I18N = {
     
     // Floating Bar
     selectedCount: '🟢 {count} canción{es} seleccionada{s}',
-    makePlaylistBtn: '➕ Crear playlist en Spotify',
+    makePlaylistBtn: '➕ Crear playlist en YouTube Music',
     shuffleSelectedBtn: '🔀 Mezclar selección',
     clearEsc: 'Deseleccionar (Esc)',
     
@@ -585,10 +585,10 @@ const I18N = {
     colDuration: '⏱️',
     
     // Right Panel
-    tabSpotifySearch: '🔍 Buscar',
+    tabSearch: '🔍 Buscar',
     tabBrowseList: '📑 Playlists',
     tabDiscovery: '🎲 ¡Sorpréndeme!',
-    searchCatalogPlaceholder: 'Buscar en el catálogo de Spotify...',
+    searchCatalogPlaceholder: 'Buscar en el catálogo de YouTube Music...',
     searchBtn: 'Buscar',
     modAll: 'Todos',
     modSong: '🎵 Canción',
@@ -596,11 +596,11 @@ const I18N = {
     modLyrics: '📜 Letras',
     selectPlaylistOption: 'Selecciona una playlist para explorar...',
     addSelectedBtn: '➕ Añadir a lista principal',
-    rightSearchPlaceholder: 'Escribe arriba para buscar en Spotify o elige una playlist para explorar.',
+    rightSearchPlaceholder: 'Escribe arriba para buscar en YouTube Music o elige una playlist para explorar.',
     
     // Player
     notPlaying: 'Sin reproducción activa',
-    openSpotifyPrompt: 'Abre Spotify en tu Mac o teléfono Android',
+    openPlayerPrompt: 'Abre YouTube Music en tu Mac o teléfono Android',
     selectDevicePrompt: '📱 Seleccionar dispositivo',
     
     // Context Menu
@@ -608,7 +608,7 @@ const I18N = {
     ctxSaveToLiked: '💚 Guardar en Canciones que te gustan',
     ctxRemoveFromLiked: '🤍 Quitar de Canciones que te gustan',
     ctxTrueShuffleSelected: '🔀 Aleatorio de seleccionadas',
-    ctxMakePlaylist: '➕ Crear playlist en Spotify...',
+    ctxMakePlaylist: '➕ Crear playlist en YouTube Music...',
     ctxRemoveFromList: '🗑️ Quitar seleccionadas de la lista',
     ctxKeepOnlySelected: '🎯 Mantener solo seleccionadas (Quitar las demás)',
     toastRemovedFromList: '🗑️ Se quitaron {count} canción{s} de la lista activa (Cmd+Z para deshacer)',
@@ -624,13 +624,13 @@ const I18N = {
     tipClearFilterTitle: 'Borrar filtro',
     tipClearFilter: 'Restablecer filtro y mostrar todas las canciones.',
     tipLoginTitle: 'Iniciar sesión',
-    tipLogin: 'Conecta tu cuenta de Spotify para cargar tus playlists y controlar la música.',
+    tipLogin: 'Conecta tu cuenta de YouTube Music para cargar tus playlists y controlar la música.',
     tipSyncTitle: 'Sincronizar biblioteca',
-    tipSync: 'Obtener las últimas canciones guardadas, playlists y metadatos de Spotify.',
+    tipSync: 'Obtener las últimas canciones guardadas, playlists y metadatos de YouTube Music.',
     tipSettingsTitle: 'Configuración',
     tipSettings: 'Ajustes de cuenta, claves de desarrollador y opciones de reproducción.',
-    tipConnectionTitle: 'Conexión con Spotify',
-    tipConnection: 'Muestra el estado de conexión con la API de Spotify y la app de escritorio.',
+    tipConnectionTitle: 'Conexión con YouTube Music',
+    tipConnection: 'Muestra el estado de conexión con la API de YouTube Music y la app de escritorio.',
     tipLikedSongsTitle: 'Canciones que te gustan',
     tipLikedSongs: 'Todas las canciones guardadas en tu biblioteca de Canciones que te gustan.',
     tipAllTracksTitle: 'Todas las canciones',
@@ -649,7 +649,7 @@ const I18N = {
     tipClearQueue: 'Vacía la lista activa de trabajo sin borrar canciones de tu biblioteca. Puedes deshacer con Cmd+Z.',
     discPlayDirectBtn: '▶ Reproducir Mix',
     tipDiscPlayDirectTitle: 'Reproducir Mix Descubierto',
-    tipDiscPlayDirect: 'Reproduce todas las canciones descubiertas directamente en Spotify sin modificar tu lista activa.',
+    tipDiscPlayDirect: 'Reproduce todas las canciones descubiertas directamente en YouTube Music sin modificar tu lista activa.',
     tipLockOrderTitle: 'Bloqueo de orden',
     tipLockOrder: 'Bloquea o desbloquea el arrastre para evitar reordenamientos accidentales.',
     tipResetOrderTitle: 'Restaurar orden',
@@ -657,12 +657,12 @@ const I18N = {
     tipSaveOrderTitle: 'Guardar orden',
     tipSaveOrder: 'Guarda el orden actual de columnas como tu orden personalizado definitivo.',
     tipSaveAsPlaylistTitle: 'Guardar como lista',
-    tipSaveAsPlaylistActive: 'Guarda esta lista única de {count} canciones como una nueva playlist en Spotify.',
+    tipSaveAsPlaylistActive: 'Guarda esta lista única de {count} canciones como una nueva playlist en YouTube Music.',
     tipSaveAsPlaylistExistsTitle: 'La playlist ya existe',
     tipSaveAsPlaylistExists: 'Esta lista y orden exacto coincide con "{name}".',
     tipSaveAsPlaylistEmpty: 'La lista activa no tiene canciones para guardar.',
     tipQueueInfoTitle: 'Cola de reproducción activa',
-    tipQueueInfo: 'Al hacer clic en ▶ Reproducir lista o pulsar Espacio, Spotify reproduce estas canciones en el orden que se muestra abajo.',
+    tipQueueInfo: 'Al hacer clic en ▶ Reproducir lista o pulsar Espacio, YouTube Music reproduce estas canciones en el orden que se muestra abajo.',
     tipSelectAllTitle: 'Seleccionar todo',
     tipSelectAll: 'Selecciona o deselecciona todas las canciones visibles de la lista.',
     tipSortNumTitle: 'Ordenar por número',
@@ -675,22 +675,22 @@ const I18N = {
     tipSortAlbum: 'Ordena las canciones alfabéticamente por nombre de álbum.',
     tipSortDurationTitle: 'Ordenar por duración',
     tipSortDuration: 'Ordena las canciones de menor a mayor duración.',
-    tipCreatePlaylistTitle: 'Crear playlist en Spotify',
-    tipCreatePlaylist: 'Exporta todas las canciones seleccionadas a una nueva playlist en tu cuenta de Spotify.',
+    tipCreatePlaylistTitle: 'Crear playlist en YouTube Music',
+    tipCreatePlaylist: 'Exporta todas las canciones seleccionadas a una nueva playlist en tu cuenta de YouTube Music.',
     tipShuffleSelectedTitle: 'Mezclar selección',
     tipShuffleSelected: 'Mezcla las canciones seleccionadas cada vez que lo activas.',
     tipDeselectAllTitle: 'Deseleccionar todo',
     tipDeselectAll: 'Borra la selección de canciones.',
     tipResizeRightTitle: 'Redimensionar panel derecho',
     tipResizeRight: 'Haz clic y arrastra horizontalmente para cambiar el ancho del panel derecho.',
-    tipSearchTabTitle: 'Buscar en Spotify',
-    tipSearchTab: 'Busca y previsualiza millones de canciones en el catálogo mundial de Spotify.',
+    tipSearchTabTitle: 'Buscar en YouTube Music',
+    tipSearchTab: 'Busca y previsualiza millones de canciones en el catálogo mundial de YouTube Music.',
     tipBrowseTabTitle: 'Explorar playlists',
     tipBrowseTab: 'Explora canciones de tus otras playlists para arrastrarlas a tu cola de reproducción.',
     tipSearchCatalogTitle: 'Buscar en el catálogo',
-    tipSearchCatalog: 'Escribe títulos de canciones, artistas o letras para buscar en Spotify.',
+    tipSearchCatalog: 'Escribe títulos de canciones, artistas o letras para buscar en YouTube Music.',
     tipRunSearchTitle: 'Ejecutar búsqueda',
-    tipRunSearch: 'Consulta a Spotify por canciones coincidentes.',
+    tipRunSearch: 'Consulta a YouTube Music por canciones coincidentes.',
     tipModAllTitle: 'Todos los campos',
     tipModAll: 'Busca simultáneamente en títulos de canciones, artistas y álbumes.',
     tipModSongTitle: 'Solo títulos de canción',
@@ -698,29 +698,29 @@ const I18N = {
     tipModArtistTitle: 'Solo artistas',
     tipModArtist: 'Filtra los resultados estrictamente por el nombre del artista.',
     tipModLyricsTitle: 'Búsqueda por letra',
-    tipModLyrics: 'Busca canciones en el catálogo de Spotify por fragmentos de su letra.',
+    tipModLyrics: 'Busca canciones en el catálogo de YouTube Music por fragmentos de su letra.',
     tipSelectPlaylistTitle: 'Seleccionar playlist',
-    tipSelectPlaylist: 'Elige una de tus playlists de Spotify para ver y arrastrar canciones.',
+    tipSelectPlaylist: 'Elige una de tus playlists de YouTube Music para ver y arrastrar canciones.',
     tipAddSelectedTitle: 'Añadir a lista principal',
     tipAddSelected: 'Agrega las canciones seleccionadas del panel derecho directamente a tu lista activa.',
     tipNowPlayingTitle: 'En reproducción',
-    tipNowPlaying: 'Muestra la canción y el artista que se están reproduciendo actualmente en Spotify.',
+    tipNowPlaying: 'Muestra la canción y el artista que se están reproduciendo actualmente en YouTube Music.',
     tipPrevTitle: 'Canción anterior',
     tipPrev: 'Reproduce la canción anterior en la cola.',
     tipPlayPauseTitle: 'Reproducir / Pausar',
-    tipPlayPause: 'Alterna la reproducción en Spotify.',
+    tipPlayPause: 'Alterna la reproducción en YouTube Music.',
     tipNextTitle: 'Siguiente canción',
     tipNext: 'Salta a la siguiente canción en la cola.',
     tipVolumeTitle: 'Volumen',
-    tipVolume: 'Ajusta el nivel de volumen de Spotify.',
+    tipVolume: 'Ajusta el nivel de volumen de YouTube Music.',
     tipDeviceTitle: 'Dispositivo de reproducción',
-    tipDevice: 'Selecciona el dispositivo activo de Spotify Connect (Mac, Teléfono, Altavoz).',
+    tipDevice: 'Selecciona el dispositivo activo de Audio Device (Mac, Teléfono, Altavoz).',
     tipPlayTrackTitle: 'Reproducir canción',
-    tipPlayTrack: 'Reproduce esta canción directamente en Spotify y encola las siguientes.',
+    tipPlayTrack: 'Reproduce esta canción directamente en YouTube Music y encola las siguientes.',
     tipPauseTrackTitle: 'Pausar canción',
-    tipPauseTrack: 'Pausa la reproducción en Spotify.',
+    tipPauseTrack: 'Pausa la reproducción en YouTube Music.',
     tipResumeTrackTitle: 'Reanudar canción',
-    tipResumeTrack: 'Reanuda la reproducción de esta canción en Spotify.',
+    tipResumeTrack: 'Reanuda la reproducción de esta canción en YouTube Music.',
     
     // Discovery Engine
     discoveryPanelHeading: 'Motor de Descubrimiento',
@@ -781,7 +781,7 @@ const I18N = {
     tipNotLikedTitle: 'NO en Canciones que te gustan',
     tipNotLiked: 'Garantiza música 100% nueva excluyendo todas las canciones guardadas en tu biblioteca.',
     tipNotInPlaylistsTitle: 'NO en Ninguna Playlist',
-    tipNotInPlaylists: 'Excluye cualquier canción que ya esté guardada en cualquiera de tus playlists de Spotify.',
+    tipNotInPlaylists: 'Excluye cualquier canción que ya esté guardada en cualquiera de tus playlists de YouTube Music.',
     tipNotRecentTitle: 'NO Reproducidas Recientemente',
     tipNotRecent: 'Excluye canciones reproducidas en los últimos 7 o 30 días.',
     tipLiveNotTitle: 'Sin En Vivo',
@@ -814,7 +814,7 @@ function t(key, params = {}) {
 
 function applyLanguage(lang) {
   state.currentLang = lang;
-  localStorage.setItem('kiki_spotify_lang', lang);
+  localStorage.setItem('kiki_ytm_lang', lang);
 
   // Update language toggle button visual states
   if (DOM.langBtnEn) DOM.langBtnEn.classList.toggle('active', lang === 'en');
@@ -855,7 +855,7 @@ function applyLanguage(lang) {
   DOM.connectionBadge?.setAttribute('data-tooltip', t('tipConnection'));
   if (DOM.statusText) {
     if (state.authenticated) {
-      DOM.statusText.textContent = t('connected') || 'Spotify Online';
+      DOM.statusText.textContent = t('connected') || 'Online';
     } else {
       DOM.statusText.textContent = t('loginNeeded') || 'Not Logged';
     }
@@ -1015,7 +1015,7 @@ function applyLanguage(lang) {
 
   // Right Panel
   if (DOM.tabRightSearch) {
-    DOM.tabRightSearch.textContent = t('tabSpotifySearch');
+    DOM.tabRightSearch.textContent = t('tabSearch');
     DOM.tabRightSearch.setAttribute('data-tooltip-title', t('tipSearchTabTitle'));
     DOM.tabRightSearch.setAttribute('data-tooltip', t('tipSearchTab'));
   }
@@ -1581,7 +1581,7 @@ async function checkStatus() {
     
     if (data.authenticated) {
       DOM.connectionBadge.className = 'status-badge status-online';
-      DOM.statusText.textContent = t('connected') || 'Spotify Online';
+      DOM.statusText.textContent = t('connected') || 'Online';
       DOM.loginBtn?.classList.add('hidden');
       DOM.connectWelcomeHero?.classList.add('hidden');
       if (!state.isSyncing) {
@@ -1606,7 +1606,7 @@ async function checkStatus() {
         DOM.emptyState?.classList.add('hidden');
       }
       DOM.tracksTbody.innerHTML = '';
-      DOM.playlistsList.innerHTML = `<div style="padding:12px 16px; font-size:11px; color:#888;">${t('connectPromptPlaylists') || 'Connect Spotify to load your playlists.'}</div>`;
+      DOM.playlistsList.innerHTML = `<div style="padding:12px 16px; font-size:11px; color:#888;">${t('connectPromptPlaylists') || 'Connect YouTube Music to load your playlists.'}</div>`;
       startAuthPoller();
     }
     return data;
@@ -2091,7 +2091,7 @@ async function handleToggleLikeTrack(track) {
         liked: nextLiked,
         track: {
           id: track.id,
-          uri: track.uri || `spotify:track:${track.id}`,
+          uri: track.uri || `yt:track:${track.id}`,
           title: track.title,
           artist: track.artist,
           album: track.album || '',
@@ -2626,7 +2626,7 @@ async function saveAsUserOrder() {
   }
 }
 
-// --- Right Panel: Dual Source Browser & Spotify Search ---
+// --- Right Panel: Dual Source Browser & YouTube Music Search ---
 let rightSearchTimeout = null;
 
 function initRightPanel() {
@@ -2809,7 +2809,7 @@ function renderRightItems() {
     const row = document.createElement('div');
     row.className = 'right-item-row';
     row.dataset.trackId = track.id;
-    row.dataset.trackUri = track.uri || (track.id ? `spotify:track:${track.id}` : '');
+    row.dataset.trackUri = track.uri || (track.id ? `yt:track:${track.id}` : '');
     row.dataset.trackTitle = track.title || '';
     row.dataset.index = index;
     row.draggable = true;
@@ -3550,7 +3550,7 @@ function renderDiscoveryResultsItems(tracks) {
     const row = document.createElement('div');
     row.className = 'right-item-row';
     row.dataset.trackId = track.id;
-    row.dataset.trackUri = track.uri || (track.id ? `spotify:track:${track.id}` : '');
+    row.dataset.trackUri = track.uri || (track.id ? `yt:track:${track.id}` : '');
     row.dataset.trackTitle = track.title || '';
     row.dataset.index = index;
     row.draggable = true;
@@ -3604,8 +3604,8 @@ function renderDiscoveryResultsItems(tracks) {
       const popVal = track.popularity !== undefined ? `${track.popularity}%` : (track.artist_popularity !== undefined ? `${track.artist_popularity}%` : '');
       const popBadgeText = popVal ? ` (${popVal})` : '';
       const tooltip = isEs
-        ? `Joya Oculta: Índice de popularidad en Spotify bajo (${popVal || 'desconocido'})`
-        : `Hidden Gem: Low Spotify popularity metric (${popVal || 'unknown'})`;
+        ? `Joya Oculta: Índice de popularidad bajo (${popVal || 'desconocido'})`
+        : `Hidden Gem: Low popularity metric (${popVal || 'unknown'})`;
       gemBadgeHtml = `<span class="hidden-gem-badge" title="${escapeHtml(tooltip)}">${gemLabel}${popBadgeText}</span>`;
     }
 
@@ -3986,7 +3986,7 @@ function updatePlayerUI(data) {
     state.currentPlayingTrackId = null;
     state.currentPlayingTrackTitle = null;
     DOM.playerTitle.textContent = 'Not Playing';
-    DOM.playerArtist.textContent = 'Open Spotify on Mac or Android';
+    DOM.playerArtist.textContent = 'Open YouTube Music on Mac or Android';
     updatePlayerPlayPauseButton(false);
     DOM.progressBarFill.style.width = '0%';
 
@@ -4029,11 +4029,11 @@ function updateSaveAsPlaylistButtonState() {
     DOM.saveAsPlaylistBtn.classList.remove('btn-secondary');
     DOM.saveAsPlaylistBtn.classList.add('btn-primary');
     DOM.saveAsPlaylistBtn.setAttribute('data-tooltip-title', t('tipSaveAsPlaylistTitle') || 'Save as Playlist');
-    DOM.saveAsPlaylistBtn.setAttribute('data-tooltip', t('tipSaveAsPlaylistActive', { count }) || `Save or overwrite a Spotify playlist with these ${count} songs.`);
+    DOM.saveAsPlaylistBtn.setAttribute('data-tooltip', t('tipSaveAsPlaylistActive', { count }) || `Save or overwrite a YouTube Music playlist with these ${count} songs.`);
   }
 }
 
-// --- Create Spotify Playlist Modal ---
+// --- Create YouTube Music Playlist Modal ---
 function openCreatePlaylistModal(fromActiveList = false) {
   state.playlistCreationFromActiveList = fromActiveList;
   let count = 0;
@@ -4056,7 +4056,7 @@ function openCreatePlaylistModal(fromActiveList = false) {
   DOM.newPlaylistName.focus();
 }
 
-async function handleCreateSpotifyPlaylist() {
+async function handleCreatePlaylist() {
   const name = DOM.newPlaylistName.value.trim();
   const desc = DOM.newPlaylistDesc.value.trim();
   let trackIds = [];
@@ -4080,8 +4080,8 @@ async function handleCreateSpotifyPlaylist() {
       ? `⚠️ ¿Sobrescribir playlist "${existingPlaylist.name}"?` 
       : `⚠️ Overwrite Playlist "${existingPlaylist.name}"?`;
     const confirmMsg = isEs
-      ? `Ya existe una playlist llamada "${existingPlaylist.name}" con ${existingPlaylist.total_tracks} canciones.\n\n¿Deseas sobrescribirla con estas ${trackIds.length} canciones? Esto actualizará la lista en Spotify y en tu biblioteca local.`
-      : `A playlist named "${existingPlaylist.name}" already exists (${existingPlaylist.total_tracks} tracks).\n\nDo you want to overwrite it with these ${trackIds.length} tracks? This will replace the playlist's tracks on Spotify and in your local library.`;
+      ? `Ya existe una playlist llamada "${existingPlaylist.name}" con ${existingPlaylist.total_tracks} canciones.\n\n¿Deseas sobrescribirla con estas ${trackIds.length} canciones? Esto actualizará la lista en YouTube Music y en tu biblioteca local.`
+      : `A playlist named "${existingPlaylist.name}" already exists (${existingPlaylist.total_tracks} tracks).\n\nDo you want to overwrite it with these ${trackIds.length} tracks? This will replace the playlist's tracks on YouTube Music and in your local library.`;
     const confirmBtnText = isEs ? '⚠️ Sobrescribir Playlist' : '⚠️ Overwrite Playlist';
 
     showConfirmModal({
@@ -4372,7 +4372,7 @@ function initEventListeners() {
   // Modals
   DOM.closeCreatePlaylistModal?.addEventListener('click', () => DOM.createPlaylistModal.classList.add('hidden'));
   DOM.cancelCreatePlaylistModal?.addEventListener('click', () => DOM.createPlaylistModal.classList.add('hidden'));
-  DOM.confirmCreatePlaylistModal?.addEventListener('click', handleCreateSpotifyPlaylist);
+  DOM.confirmCreatePlaylistModal?.addEventListener('click', handleCreatePlaylist);
 
   // Sync Conflict Modal Listeners
   DOM.closeSyncConflictModal?.addEventListener('click', () => DOM.syncConflictModal.classList.add('hidden'));
@@ -4472,9 +4472,9 @@ function initEventListeners() {
     if (confirmModalCallback) confirmModalCallback();
   });
 
-  async function triggerSpotifyLogin() {
+  async function triggerLogin() {
     try {
-      showToast('Connecting to Spotify...');
+      showToast('Connecting to YouTube Music...');
       const auth = await api('/api/auth/login');
       if (auth.auth_url) {
         window.location.href = auth.auth_url;
@@ -4484,9 +4484,9 @@ function initEventListeners() {
     }
   }
 
-  DOM.loginBtn?.addEventListener('click', triggerSpotifyLogin);
-  DOM.modal1ClickLoginBtn?.addEventListener('click', triggerSpotifyLogin);
-  DOM.heroLoginBtn?.addEventListener('click', triggerSpotifyLogin);
+  DOM.loginBtn?.addEventListener('click', triggerLogin);
+  DOM.modal1ClickLoginBtn?.addEventListener('click', triggerLogin);
+  DOM.heroLoginBtn?.addEventListener('click', triggerLogin);
 
   DOM.logoutBtn?.addEventListener('click', () => {
     showConfirmModal({

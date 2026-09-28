@@ -220,7 +220,7 @@ fun main() {
         }
 
         routing {
-            // Serve frontend resources from Spotify_handler
+            // Serve frontend resources
             staticResources("/", "frontend", index = "index.html")
 
             get("/api/health") {
