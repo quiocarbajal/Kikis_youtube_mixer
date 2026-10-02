@@ -10,6 +10,8 @@ const state = {
   lastClickedIndex: 0,
   searchQuery: '',
   activeView: 'liked_songs',
+  blacklist: [],
+  blacklistSearch: '',
   
   userCustomOrderIds: [],
   sortState: { column: 'order_index', direction: 'asc', isTemporary: false },
@@ -117,6 +119,15 @@ const DOM = {
   syncStageText: document.getElementById('sync-stage-text'),
   logoutBtn: document.getElementById('logout-btn'),
   tableContainer: document.getElementById('table-container'),
+  queueActionsRow: document.querySelector('#table-toolbar .toolbar-actions-row:not(#blacklist-toolbar-row)'),
+  blacklistToolbarRow: document.getElementById('blacklist-toolbar-row'),
+  blacklistAddInput: document.getElementById('blacklist-add-input'),
+  blacklistSuggestions: document.getElementById('blacklist-artist-suggestions'),
+  blacklistAddBtn: document.getElementById('blacklist-add-btn'),
+  blacklistSearchFilter: document.getElementById('blacklist-search-filter'),
+  blacklistContainer: document.getElementById('blacklist-container'),
+  blacklistTableBody: document.getElementById('blacklist-table-body'),
+  blacklistEmptyState: document.getElementById('blacklist-empty-state'),
   
   // Floating Batch Action Bar
   selectionActionBar: document.getElementById('selection-action-bar'),
@@ -133,6 +144,7 @@ const DOM = {
   rightPlaylistControls: document.getElementById('right-playlist-controls'),
   rightDiscoveryControls: document.getElementById('right-discovery-controls'),
   rightSearchInput: document.getElementById('right-search-input'),
+  rightSearchSuggestions: document.getElementById('right-search-suggestions'),
   rightSearchSubmitBtn: document.getElementById('right-search-submit-btn'),
   searchModPills: document.querySelectorAll('.search-mod-pill'),
   rightPlaylistPicker: document.getElementById('right-playlist-picker'),
@@ -1357,6 +1369,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try { await loadLikedTrackIds(); } catch (e) {}
     try { await loadPlaylists(); } catch (e) {}
     try { await loadTracks(); } catch (e) {}
+    try { await refreshBlacklistCount(); } catch (e) {}
     
     // If just authorized or library has 0 synced tracks, automatically trigger sync!
     if (isAuthRedirect || !statusData?.has_synced_tracks || (state.tracks.length === 0 && state.allPlaylists.length === 0)) {
@@ -1662,6 +1675,106 @@ function showConfirmModal({ title, message, showInput = false, inputValue = '', 
   if (showInput) DOM.confirmModalInput.focus();
 }
 
+function attachNavItemDropHandler(item) {
+  if (!item || item._dropAttached) return;
+  item._dropAttached = true;
+
+  item.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    item.classList.add('nav-drop-target');
+  });
+
+  item.addEventListener('dragleave', () => {
+    item.classList.remove('nav-drop-target');
+  });
+
+  item.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    item.classList.remove('nav-drop-target');
+
+    let payload = null;
+    try {
+      const raw = e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
+      payload = raw ? JSON.parse(raw) : null;
+    } catch (err) {}
+
+    if (!payload && window.__draggedTracksFromRight) {
+      payload = { source: 'right', tracks: window.__draggedTracksFromRight };
+    }
+    window.__draggedTracksFromRight = null;
+
+    if (!payload || !payload.tracks || payload.tracks.length === 0) return;
+
+    const view = item.dataset.view;
+    const playlistId = item.dataset.playlistId;
+
+    if (view === 'blacklist') {
+      await handleDropTracksOntoBlacklist(payload.tracks);
+    } else if (view === 'liked_songs') {
+      for (const t of payload.tracks) {
+        try {
+          await api('/api/playlists/liked_songs/add-track', {
+            method: 'POST',
+            body: JSON.stringify({
+              track_id: t.id,
+              track: {
+                id: t.id,
+                uri: t.uri || `yt:track:${t.id}`,
+                title: t.title,
+                artist: t.artist,
+                primary_artist: t.primary_artist || '',
+                album: t.album || '',
+                duration_ms: t.duration_ms || t.durationMs || 0,
+                durationMs: t.duration_ms || t.durationMs || 0,
+                thumbnailUrl: t.thumbnailUrl || t.album_art_url || '',
+                album_art_url: t.album_art_url || t.thumbnailUrl || '',
+                loudnessDb: t.loudnessDb || 0.0
+              }
+            })
+          });
+          state.likedTrackIds.add(t.id);
+        } catch (err) {}
+      }
+      await loadPlaylists();
+      if (state.activeView === 'liked_songs') await loadTracks();
+      showToast(state.currentLang === 'es'
+        ? `💚 ${payload.tracks.length} canción(es) añadida(s) a Canciones que te gustan`
+        : `💚 Added ${payload.tracks.length} track(s) to Liked Songs`);
+    } else if (playlistId) {
+      for (const t of payload.tracks) {
+        try {
+          await api(`/api/playlists/${playlistId}/add-track`, {
+            method: 'POST',
+            body: JSON.stringify({
+              track_id: t.id,
+              track: {
+                id: t.id,
+                uri: t.uri || `yt:track:${t.id}`,
+                title: t.title,
+                artist: t.artist,
+                primary_artist: t.primary_artist || '',
+                album: t.album || '',
+                duration_ms: t.duration_ms || t.durationMs || 0,
+                durationMs: t.duration_ms || t.durationMs || 0,
+                thumbnailUrl: t.thumbnailUrl || t.album_art_url || '',
+                album_art_url: t.album_art_url || t.thumbnailUrl || '',
+                loudnessDb: t.loudnessDb || 0.0
+              }
+            })
+          });
+        } catch (err) {}
+      }
+      await loadPlaylists();
+      if (state.activeView === playlistId) await loadTracks();
+      showToast(state.currentLang === 'es'
+        ? `➕ ${payload.tracks.length} canción(es) añadida(s) a la playlist`
+        : `➕ Added ${payload.tracks.length} track(s) to playlist`);
+    }
+  });
+}
+
 // --- Playlists Operations ---
 async function loadPlaylists() {
   try {
@@ -1729,6 +1842,7 @@ async function loadPlaylists() {
         openPlaylistContextMenu(e.clientX, e.clientY, p);
       });
 
+      attachNavItemDropHandler(item);
       DOM.playlistsList.appendChild(item);
     });
     updateSaveAsPlaylistButtonState();
@@ -1738,6 +1852,20 @@ async function loadPlaylists() {
 // --- Load Tracks for Current View (Main Center Panel) ---
 async function loadTracks() {
   try {
+    if (state.activeView === 'blacklist') {
+      DOM.queueActionsRow?.classList.add('hidden');
+      DOM.blacklistToolbarRow?.classList.remove('hidden');
+      DOM.tracksTable?.classList.add('hidden');
+      DOM.blacklistContainer?.classList.remove('hidden');
+      await loadBlacklist();
+      return;
+    } else {
+      DOM.queueActionsRow?.classList.remove('hidden');
+      DOM.blacklistToolbarRow?.classList.add('hidden');
+      DOM.tracksTable?.classList.remove('hidden');
+      DOM.blacklistContainer?.classList.add('hidden');
+    }
+
     let url = '/api/tracks?';
     const params = new URLSearchParams();
     
@@ -1770,6 +1898,33 @@ async function loadTracks() {
 
 function updateCounts(count) {
   const isEs = state.currentLang === 'es';
+
+  if (state.activeView === 'blacklist') {
+    const c = count !== undefined ? count : state.blacklist.length;
+    DOM.trackCountBadge.textContent = isEs 
+      ? `${c} artista${c === 1 ? '' : 's'} en la lista negra` 
+      : `${c} blacklisted artist${c === 1 ? '' : 's'}`;
+
+    const headingEl = document.getElementById('active-queue-heading');
+    const subtextEl = document.getElementById('queue-subtext-desc');
+
+    if (headingEl) {
+      headingEl.textContent = isEs ? 'Cola activa: Blacklist' : 'Active Queue: Blacklist';
+    }
+
+    if (subtextEl) {
+      subtextEl.textContent = isEs
+        ? 'Artistas excluidos de las mezclas de Surprise Me. Se permiten colaboraciones donde no sean el artista principal.'
+        : 'Artists excluded from Surprise Me discovery mixes. Collaborative tracks where they are not the main artist remain allowed.';
+    }
+
+    const countBlacklist = document.getElementById('count-blacklist');
+    if (countBlacklist) {
+      countBlacklist.textContent = c;
+    }
+    return;
+  }
+
   DOM.trackCountBadge.textContent = isEs 
     ? `${count} canción${count === 1 ? '' : 'es'} en la cola` 
     : `${count} track${count === 1 ? '' : 's'} in queue`;
@@ -2094,14 +2249,19 @@ async function handleToggleLikeTrack(track) {
           uri: track.uri || `yt:track:${track.id}`,
           title: track.title,
           artist: track.artist,
+          primary_artist: track.primary_artist || '',
           album: track.album || '',
-          album_art_url: track.album_art_url || '',
-          duration_ms: track.duration_ms || 0
+          album_art_url: track.album_art_url || track.thumbnailUrl || '',
+          thumbnailUrl: track.thumbnailUrl || track.album_art_url || '',
+          duration_ms: track.duration_ms || track.durationMs || 0,
+          durationMs: track.duration_ms || track.durationMs || 0,
+          loudnessDb: track.loudnessDb || 0.0
         }
       })
     });
-    if (res && res.liked_count !== undefined && countLikedBadge) {
-      countLikedBadge.textContent = res.liked_count;
+    await loadPlaylists();
+    if (state.activeView === 'liked_songs') {
+      await loadTracks();
     }
   } catch (err) {
     // Revert optimistic state on failure
@@ -2126,6 +2286,220 @@ function updateTrackLikeButtonsUI(trackId, isLiked) {
       : (isEs ? 'Guardar en Canciones que te gustan' : 'Save to Liked Songs');
     btn.innerHTML = getHeartSvg(isLiked);
   });
+}
+
+// --- Artist Blacklist (Surprise Me Exclusion) Management ---
+
+async function loadBlacklist() {
+  try {
+    const data = await api('/api/blacklist/artists');
+    state.blacklist = data.artists || [];
+    renderBlacklistTable();
+    updateCounts(state.blacklist.length);
+  } catch (err) {
+    showToast('Error loading blacklist: ' + err.message, 'error');
+  }
+}
+
+function renderBlacklistTable() {
+  if (!DOM.blacklistTableBody) return;
+  DOM.blacklistTableBody.innerHTML = '';
+  
+  const query = (state.blacklistSearch || '').toLowerCase().trim();
+  const list = state.blacklist.filter(item => !query || item.name.toLowerCase().includes(query));
+  
+  const tableEl = DOM.blacklistTableBody.closest('table');
+  if (list.length === 0) {
+    if (tableEl) tableEl.classList.add('hidden');
+    DOM.blacklistEmptyState?.classList.remove('hidden');
+    return;
+  }
+  
+  if (tableEl) tableEl.classList.remove('hidden');
+  DOM.blacklistEmptyState?.classList.add('hidden');
+  
+  const isEs = state.currentLang === 'es';
+  
+  list.forEach((item, index) => {
+    const tr = document.createElement('tr');
+    tr.dataset.artistName = item.name;
+    
+    let dateStr = item.created_at || '';
+    if (dateStr) {
+      try {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          dateStr = d.toLocaleDateString(isEs ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+      } catch (e) {}
+    }
+    
+    tr.innerHTML = `
+      <td style="text-align: center; color: var(--text-muted); font-size: 11px;">${index + 1}</td>
+      <td>
+        <div class="blacklist-artist-name">
+          <span style="font-size: 11px;">🎤</span>
+          <span class="blacklist-artist-title">${escapeHtml(item.name)}</span>
+        </div>
+      </td>
+      <td style="color: var(--text-muted); font-size: 11px;">${escapeHtml(dateStr || '-')}</td>
+      <td style="text-align: right;">
+        <button type="button" class="blacklist-unblock-btn" title="${isEs ? 'Desbloquear artista' : 'Unblock artist'}">
+          ✕ ${isEs ? 'Quitar' : 'Unblock'}
+        </button>
+      </td>
+    `;
+    
+    tr.querySelector('.blacklist-unblock-btn').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await removeArtistFromBlacklist(item.name);
+    });
+    
+    DOM.blacklistTableBody.appendChild(tr);
+  });
+}
+
+async function addArtistToBlacklist(name, externalId = null) {
+  const cleanName = (name || '').trim();
+  if (!cleanName) return;
+  try {
+    await api('/api/blacklist/artists', {
+      method: 'POST',
+      body: JSON.stringify({ name: cleanName, external_id: externalId })
+    });
+    const isEs = state.currentLang === 'es';
+    showToast(isEs ? `🚫 "${cleanName}" añadido a la lista negra` : `🚫 "${cleanName}" added to Blacklist`);
+    await refreshBlacklistCount();
+    if (state.activeView === 'blacklist') {
+      await loadBlacklist();
+    }
+  } catch (err) {
+    showToast('Error adding artist to blacklist: ' + err.message, 'error');
+  }
+}
+
+async function removeArtistFromBlacklist(nameOrId) {
+  try {
+    await api(`/api/blacklist/artists/${encodeURIComponent(nameOrId)}`, {
+      method: 'DELETE'
+    });
+    const isEs = state.currentLang === 'es';
+    showToast(isEs ? `✅ "${nameOrId}" eliminado de la lista negra` : `✅ "${nameOrId}" removed from Blacklist`);
+    await refreshBlacklistCount();
+    if (state.activeView === 'blacklist') {
+      await loadBlacklist();
+    }
+  } catch (err) {
+    showToast('Error removing artist from blacklist: ' + err.message, 'error');
+  }
+}
+
+async function refreshBlacklistCount() {
+  try {
+    const data = await api('/api/blacklist/artists');
+    const count = data.count !== undefined ? data.count : (data.artists ? data.artists.length : 0);
+    const countEl = document.getElementById('count-blacklist');
+    if (countEl) countEl.textContent = count;
+  } catch (e) {}
+}
+
+function initBlacklistEvents() {
+  if (DOM.blacklistAddInput && DOM.blacklistSuggestions) {
+    setupDiscoveryTypeahead(DOM.blacklistAddInput, DOM.blacklistSuggestions, 'artist', async (item) => {
+      if (item && item.name) {
+        await addArtistToBlacklist(item.name, item.id);
+        DOM.blacklistAddInput.value = '';
+        DOM.blacklistSuggestions.classList.add('hidden');
+      }
+    });
+  }
+
+  DOM.blacklistAddBtn?.addEventListener('click', async () => {
+    const val = DOM.blacklistAddInput?.value.trim();
+    if (val) {
+      await addArtistToBlacklist(val);
+      DOM.blacklistAddInput.value = '';
+      DOM.blacklistSuggestions?.classList.add('hidden');
+    }
+  });
+
+  DOM.blacklistAddInput?.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = DOM.blacklistAddInput.value.trim();
+      if (val) {
+        await addArtistToBlacklist(val);
+        DOM.blacklistAddInput.value = '';
+        DOM.blacklistSuggestions?.classList.add('hidden');
+      }
+    }
+  });
+
+  DOM.blacklistSearchFilter?.addEventListener('input', (e) => {
+    state.blacklistSearch = e.target.value;
+    renderBlacklistTable();
+  });
+
+  DOM.blacklistContainer?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    DOM.blacklistContainer.classList.add('drop-target-active');
+  });
+  DOM.blacklistContainer?.addEventListener('dragleave', () => {
+    DOM.blacklistContainer.classList.remove('drop-target-active');
+  });
+  DOM.blacklistContainer?.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    DOM.blacklistContainer.classList.remove('drop-target-active');
+
+    let payload = null;
+    try {
+      const raw = e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
+      payload = raw ? JSON.parse(raw) : null;
+    } catch (err) {}
+    if (!payload && window.__draggedTracksFromRight) {
+      payload = { source: 'right', tracks: window.__draggedTracksFromRight };
+    }
+    window.__draggedTracksFromRight = null;
+    if (payload && payload.tracks && payload.tracks.length > 0) {
+      await handleDropTracksOntoBlacklist(payload.tracks);
+    }
+  });
+}
+
+async function handleDropTracksOntoBlacklist(tracks) {
+  if (!tracks || tracks.length === 0) return;
+  const isEs = state.currentLang === 'es';
+  const blockedArtists = new Set();
+
+  for (const track of tracks) {
+    const mainArtist = track.primary_artist || (track.artist ? track.artist.split(',')[0].split(' feat.')[0].split(' ft.')[0].trim() : '');
+    if (mainArtist && mainArtist !== 'Unknown Artist' && mainArtist !== 'Unknown') {
+      blockedArtists.add(mainArtist);
+      await addArtistToBlacklist(mainArtist);
+    }
+  }
+
+  if (blockedArtists.size > 0) {
+    // Purge from active discovery
+    state.discovery.discoveredTracks = (state.discovery.discoveredTracks || []).filter(t => {
+      const ma = t.primary_artist || (t.artist ? t.artist.split(',')[0].split(' feat.')[0].split(' ft.')[0].trim() : '');
+      return !blockedArtists.has(ma);
+    });
+    state.rightTracks = [...state.discovery.discoveredTracks];
+    if (DOM.discoveryResultCountBadge) {
+      DOM.discoveryResultCountBadge.textContent = t('discoveredCountBadge', { count: state.discovery.discoveredTracks.length });
+    }
+    renderDiscoveryResultsItems(state.discovery.discoveredTracks);
+
+    if (state.activeView === 'blacklist') {
+      await loadBlacklist();
+    }
+    showToast(isEs
+      ? `🚫 ${blockedArtists.size} artista(s) añadido(s) a la lista negra`
+      : `🚫 Added ${blockedArtists.size} artist(s) to Blacklist`);
+  }
 }
 
 async function playFromIndex(startIndex) {
@@ -2209,11 +2583,7 @@ function toggleTrueShuffle() {
   }
 
   renderTracksTable();
-  showToast('🔀 Shuffled! New random order generated (current song kept playing)');
-
-  if (currentIdx === -1) {
-    playFromIndex(0);
-  }
+  showToast('🔀 Shuffled! New random order generated');
 }
 
 function antiClumpShuffle(arr) {
@@ -2352,7 +2722,12 @@ function attachDragAndDropHandlers(tr, trackId, index) {
   tr.addEventListener('drop', async (e) => {
     e.preventDefault();
     e.stopPropagation();
+
+    const rect = tr.getBoundingClientRect();
+    const dropPosition = (e.clientY - rect.top < rect.height / 2) ? 'above' : 'below';
     tr.classList.remove('drop-target-above', 'drop-target-below');
+
+    const targetTrackId = tr.dataset.trackId || (state.tracks[index] ? state.tracks[index].id : null);
 
     try {
       let payload = null;
@@ -2368,20 +2743,21 @@ function attachDragAndDropHandlers(tr, trackId, index) {
 
       // Case 1: Songs dropped from right browser / Discovery studio
       if (payload && payload.source === 'right' && payload.tracks && payload.tracks.length > 0) {
-        insertTracksIntoMainPanel(payload.tracks, index);
+        const insertIdx = dropPosition === 'below' ? index + 1 : index;
+        insertTracksIntoMainPanel(payload.tracks, insertIdx);
         return;
       }
 
       // Case 2: Reordering main list
       if (payload && payload.tracks && payload.source === 'main') {
         const movedIds = payload.tracks.map(t => t.id);
-        executeReorder(movedIds, index);
+        executeReorder(movedIds, targetTrackId, dropPosition);
       } else if (draggedTrackData.length > 0) {
-        executeReorder(draggedTrackData.map(t => t.id), index);
+        executeReorder(draggedTrackData.map(t => t.id), targetTrackId, dropPosition);
       }
     } catch (err) {
       if (draggedTrackData.length > 0) {
-        executeReorder(draggedTrackData.map(t => t.id), index);
+        executeReorder(draggedTrackData.map(t => t.id), targetTrackId, dropPosition);
       }
     }
   });
@@ -2396,7 +2772,7 @@ function initWorkspaceContainerDrop() {
     e.dataTransfer.dropEffect = 'copy';
   });
 
-  container.addEventListener('drop', (e) => {
+  container.addEventListener('drop', async (e) => {
     if (e.target.closest('.track-row')) return; // Row drop handled by row listener
     e.preventDefault();
     e.stopPropagation();
@@ -2412,7 +2788,14 @@ function initWorkspaceContainerDrop() {
     }
     window.__draggedTracksFromRight = null;
 
-    if (payload && payload.source === 'right' && payload.tracks && payload.tracks.length > 0) {
+    if (!payload || !payload.tracks || payload.tracks.length === 0) return;
+
+    if (state.activeView === 'blacklist') {
+      await handleDropTracksOntoBlacklist(payload.tracks);
+      return;
+    }
+
+    if (payload.source === 'right') {
       insertTracksIntoMainPanel(payload.tracks, state.tracks.length);
     }
   });
@@ -2434,24 +2817,53 @@ function handleDragAutoScroll(clientY) {
   }
 }
 
-async function executeReorder(movedIds, targetIndex) {
+async function executeReorder(movedIds, targetTrackId, dropPosition = 'above') {
   if (state.isOrderLocked) {
     showToast('🔒 Active list order is locked. Unlock it to reorder!', 'error');
     return;
   }
-  state.undoStack.push([...state.tracks]);
+  if (!movedIds || movedIds.length === 0) return;
 
-  const remaining = state.tracks.filter(t => !movedIds.includes(t.id));
+  let actualTargetId = targetTrackId;
+  if (typeof targetTrackId === 'number') {
+    actualTargetId = state.tracks[targetTrackId]?.id || null;
+  }
+
+  // 4. If dropping onto an item in the selection itself, treat as a no-op.
+  if (actualTargetId && movedIds.includes(actualTargetId)) {
+    return;
+  }
+
   const movedTracks = state.tracks.filter(t => movedIds.includes(t.id));
-  const insertIdx = Math.min(targetIndex, remaining.length);
+  if (movedTracks.length === 0) return;
+
+  // Remaining array after removing moved items
+  const remaining = state.tracks.filter(t => !movedIds.includes(t.id));
+
+  // 1. In remaining array, look up target item's new index directly
+  let insertIdx;
+  if (actualTargetId) {
+    const targetIndexInRemaining = remaining.findIndex(t => t.id === actualTargetId);
+    if (targetIndexInRemaining === -1) {
+      insertIdx = remaining.length;
+    } else {
+      // 2. If dropping above the row, insert at targetIndexInRemaining.
+      // 3. If dropping below the row, insert at targetIndexInRemaining + 1.
+      insertIdx = dropPosition === 'below' ? targetIndexInRemaining + 1 : targetIndexInRemaining;
+    }
+  } else {
+    insertIdx = remaining.length;
+  }
+
+  state.undoStack.push([...state.tracks]);
   remaining.splice(insertIdx, 0, ...movedTracks);
   state.tracks = remaining;
 
   state.userCustomOrderIds = state.tracks.map(t => t.id);
   renderTracksTable();
 
-  // Only persist reorder to DB if editing a custom playlist
-  if (state.activeView && state.activeView.startsWith('custom_')) {
+  // Persist reorder to DB if editing a playlist
+  if (state.activeView && state.activeView !== 'all' && state.activeView !== 'blacklist') {
     try {
       await api('/api/playlists/reorder', {
         method: 'POST',
@@ -2460,6 +2872,7 @@ async function executeReorder(movedIds, targetIndex) {
           track_ids: state.userCustomOrderIds
         })
       });
+      await loadPlaylists();
     } catch (e) {}
   }
 }
@@ -2473,16 +2886,37 @@ async function insertTracksIntoMainPanel(newTracks, targetIndex) {
   state.userCustomOrderIds = state.tracks.map(t => t.id);
   renderTracksTable();
 
-  // Only persist to DB if editing a custom playlist
-  if (state.activeView && state.activeView.startsWith('custom_')) {
+  // Persist to DB if editing a playlist (liked_songs, local_pl_...)
+  if (state.activeView && state.activeView !== 'all' && state.activeView !== 'blacklist') {
     for (const t of newTracks) {
       try {
         await api(`/api/playlists/${state.activeView}/add-track`, {
           method: 'POST',
-          body: JSON.stringify({ track_id: t.id })
+          body: JSON.stringify({
+            track_id: t.id,
+            track: {
+              id: t.id,
+              uri: t.uri || `yt:track:${t.id}`,
+              title: t.title,
+              artist: t.artist,
+              primary_artist: t.primary_artist || '',
+              album: t.album || '',
+              duration_ms: t.duration_ms || t.durationMs || 0,
+              durationMs: t.duration_ms || t.durationMs || 0,
+              thumbnailUrl: t.thumbnailUrl || t.album_art_url || '',
+              album_art_url: t.album_art_url || t.thumbnailUrl || '',
+              loudnessDb: t.loudnessDb || 0.0
+            }
+          })
         });
       } catch (e) {}
     }
+    if (state.activeView === 'liked_songs') {
+      newTracks.forEach(t => state.likedTrackIds.add(t.id));
+      const countLiked = document.getElementById('count-liked');
+      if (countLiked) countLiked.textContent = state.tracks.length;
+    }
+    await loadPlaylists();
   }
 
   // Sync to backend queue
@@ -2518,8 +2952,8 @@ async function handleRemoveSelectedFromList() {
   state.userCustomOrderIds = state.tracks.map(t => t.id);
   state.selectedIds.clear();
 
-  // Only sync to DB if editing an explicit custom playlist
-  if (state.activeView && state.activeView.startsWith('custom_')) {
+  // Persist to DB if editing a playlist
+  if (state.activeView && state.activeView !== 'all' && state.activeView !== 'blacklist') {
     try {
       await api('/api/playlists/reorder', {
         method: 'POST',
@@ -2528,6 +2962,11 @@ async function handleRemoveSelectedFromList() {
           track_ids: state.userCustomOrderIds
         })
       });
+      if (state.activeView === 'liked_songs') {
+        const countLiked = document.getElementById('count-liked');
+        if (countLiked) countLiked.textContent = state.tracks.length;
+      }
+      await loadPlaylists();
     } catch (e) {}
   }
 
@@ -2557,8 +2996,8 @@ async function handleKeepOnlySelectedInList() {
   state.userCustomOrderIds = state.tracks.map(t => t.id);
   state.selectedIds.clear();
 
-  // Only sync to DB if editing an explicit custom playlist
-  if (state.activeView && state.activeView.startsWith('custom_')) {
+  // Persist to DB if editing a playlist
+  if (state.activeView && state.activeView !== 'all' && state.activeView !== 'blacklist') {
     try {
       await api('/api/playlists/reorder', {
         method: 'POST',
@@ -2567,6 +3006,11 @@ async function handleKeepOnlySelectedInList() {
           track_ids: state.userCustomOrderIds
         })
       });
+      if (state.activeView === 'liked_songs') {
+        const countLiked = document.getElementById('count-liked');
+        if (countLiked) countLiked.textContent = state.tracks.length;
+      }
+      await loadPlaylists();
     } catch (e) {}
   }
 
@@ -2689,14 +3133,35 @@ function initRightPanel() {
     });
   });
 
+  // Live Suggestion Typeahead for Right Search Input
+  if (DOM.rightSearchInput && DOM.rightSearchSuggestions) {
+    setupDiscoveryTypeahead(
+      DOM.rightSearchInput,
+      DOM.rightSearchSuggestions,
+      () => state.searchModifier === 'artist' ? 'artist' : (state.searchModifier === 'track' ? 'track' : 'all'),
+      (item) => {
+        const val = item.name || item.title || '';
+        DOM.rightSearchInput.value = val;
+        DOM.rightSearchSuggestions.classList.add('hidden');
+        if (item.type === 'artist') {
+          state.searchModifier = 'artist';
+          DOM.searchModPills?.forEach(p => p.classList.toggle('active', p.dataset.mod === 'artist'));
+        }
+        if (val) executeRightSearch(val);
+      }
+    );
+  }
+
   // Search Submit button & Enter key
   DOM.rightSearchSubmitBtn?.addEventListener('click', () => {
+    DOM.rightSearchSuggestions?.classList.add('hidden');
     const q = DOM.rightSearchInput.value.trim();
     if (q) executeRightSearch(q);
   });
 
   DOM.rightSearchInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
+      DOM.rightSearchSuggestions?.classList.add('hidden');
       const q = DOM.rightSearchInput.value.trim();
       if (q) executeRightSearch(q);
     }
@@ -2706,6 +3171,7 @@ function initRightPanel() {
     const q = e.target.value.trim();
     if (rightSearchTimeout) clearTimeout(rightSearchTimeout);
     if (!q) {
+      DOM.rightSearchSuggestions?.classList.add('hidden');
       DOM.rightItemsContainer.innerHTML = '<div class="search-placeholder-text">Type above to search YouTube Music.</div>';
       return;
     }
@@ -3199,9 +3665,10 @@ function setupDiscoveryTypeahead(inputEl, dropdownEl, type, onSelect) {
 
     typeaheadDebounce = setTimeout(async () => {
       try {
-        const data = await api(`/api/discovery/suggest?type=${type}&q=${encodeURIComponent(q)}`);
+        const resolvedType = typeof type === 'function' ? type() : type;
+        const data = await api(`/api/discovery/suggest?type=${resolvedType}&q=${encodeURIComponent(q)}`);
         const suggestions = data.suggestions || data.results || [];
-        renderTypeaheadDropdown(dropdownEl, suggestions, type, onSelect);
+        renderTypeaheadDropdown(dropdownEl, suggestions, resolvedType, onSelect);
       } catch (err) {
         dropdownEl.classList.add('hidden');
       }
@@ -3661,6 +4128,31 @@ function renderDiscoveryResultsItems(tracks) {
     });
     actionsWrap.appendChild(addBtn);
 
+    const blockBtn = document.createElement('button');
+    blockBtn.className = 'right-item-block-btn';
+    const mainArtist = track.primary_artist || (track.artist ? track.artist.split(',')[0].split(' feat.')[0].split(' ft.')[0].trim() : 'Unknown');
+    blockBtn.title = state.currentLang === 'es'
+      ? `Bloquear artista principal (${mainArtist}) de Surprise Me`
+      : `Block main artist (${mainArtist}) from Surprise Me`;
+    blockBtn.textContent = '🚫';
+    blockBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!mainArtist || mainArtist === 'Unknown') return;
+      await addArtistToBlacklist(mainArtist);
+
+      // Immediately purge all tracks where this artist is the main artist from the active Discovery view
+      state.discovery.discoveredTracks = (state.discovery.discoveredTracks || []).filter(t => {
+        const ma = t.primary_artist || (t.artist ? t.artist.split(',')[0].split(' feat.')[0].split(' ft.')[0].trim() : '');
+        return ma.toLowerCase() !== mainArtist.toLowerCase();
+      });
+      state.rightTracks = [...state.discovery.discoveredTracks];
+      if (DOM.discoveryResultCountBadge) {
+        DOM.discoveryResultCountBadge.textContent = t('discoveredCountBadge', { count: state.discovery.discoveredTracks.length });
+      }
+      renderDiscoveryResultsItems(state.discovery.discoveredTracks);
+    });
+    actionsWrap.appendChild(blockBtn);
+
     row.appendChild(actionsWrap);
 
     const albumArtEl = metaWrap.querySelector('.track-album-art, .track-album-art-placeholder');
@@ -3674,7 +4166,7 @@ function renderDiscoveryResultsItems(tracks) {
 
     // Row selection on click
     row.addEventListener('click', (e) => {
-      if (e.target.closest('.right-item-add-btn') || e.target.closest('.right-item-play-btn') || e.target.closest('.disc-item-play-btn') || e.target.closest('.right-item-like-btn') || e.target.closest('.track-album-art') || e.target.closest('.track-album-art-placeholder') || e.target.type === 'checkbox') return;
+      if (e.target.closest('.right-item-block-btn') || e.target.closest('.right-item-add-btn') || e.target.closest('.right-item-play-btn') || e.target.closest('.disc-item-play-btn') || e.target.closest('.right-item-like-btn') || e.target.closest('.track-album-art') || e.target.closest('.track-album-art-placeholder') || e.target.type === 'checkbox') return;
       handleRightRowClick(e, track.id, index);
     });
 
@@ -4198,6 +4690,8 @@ function hideAllContextMenus() {
 
 // --- Event Listeners Setup ---
 function initEventListeners() {
+  initBlacklistEvents();
+
   // Dual-Flag Language Switcher (🇬🇧 English <-> 🇦🇷 Español Argentina)
   DOM.langBtnEn?.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -4240,6 +4734,7 @@ function initEventListeners() {
 
   // Sidebar Nav
   DOM.navItems?.forEach(item => {
+    attachNavItemDropHandler(item);
     item.addEventListener('click', () => {
       document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
       item.classList.add('active');
