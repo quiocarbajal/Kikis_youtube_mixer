@@ -72,4 +72,12 @@ tasks.register<Exec>("packageDmg") {
     }
 
     commandLine(argsList)
+
+    doLast {
+        val generatedDmg = file("${outputDir.absolutePath}/kiki's youtube mixer-1.0.0.dmg")
+        val targetDmg = file("${project.rootDir}/kiki's youtube mixer-0.0.1.dmg")
+        if (generatedDmg.exists()) {
+            generatedDmg.copyTo(targetDmg, overwrite = true)
+        }
+    }
 }

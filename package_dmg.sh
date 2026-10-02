@@ -37,6 +37,5 @@ echo "Building and packaging kiki's youtube mixer DMG..."
 
 ./gradlew :desktop:packageDmg
 
-echo ""
-echo "✅ DMG generated successfully:"
-ls -lh desktop/build/dist/*.dmg 2>/dev/null || echo "Check desktop/build/dist/"
+echo "✅ DMG generated successfully in root:"
+ls -lh "kiki's youtube mixer-0.0.1.dmg" 2>/dev/null || ls -lh ./*.dmg 2>/dev/null
