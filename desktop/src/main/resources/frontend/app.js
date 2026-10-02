@@ -39,10 +39,11 @@ const state = {
     notLikedSongs: true,
     notInPlaylists: true,
     notRecentlyPlayedDays: 30,
-    notLive: true,
+    notLive: false,
     onlyLive: false,
-    notRemix: true,
+    notRemix: false,
     onlyRemix: false,
+    ignoreBlacklist: false,
     lowPopularityOnly: false,
     hiddenGemTarget: 'artist',
     targetCount: 30,
@@ -181,6 +182,7 @@ const DOM = {
   
   discNotLiked: document.getElementById('disc-not-liked'),
   discNotPlaylists: document.getElementById('disc-not-playlists'),
+  discIgnoreBlacklist: document.getElementById('disc-ignore-blacklist'),
   discRecentDaysRadios: document.querySelectorAll('input[name="disc-recent-days"]'),
   discLiveModeRadios: document.querySelectorAll('input[name="disc-live-mode"]'),
   discRemixModeRadios: document.querySelectorAll('input[name="disc-remix-mode"]'),
@@ -520,6 +522,9 @@ const I18N = {
     tipNotLiked: 'Guarantees 100% brand new music by excluding every song in your Liked Songs library.',
     tipNotInPlaylistsTitle: 'NOT in Any Playlist',
     tipNotInPlaylists: 'Excludes any song that is already saved in any of your YouTube Music playlists.',
+    discIgnoreBlacklistLabel: '🔓 Unlock Blacklist for this mix',
+    tipIgnoreBlacklistTitle: 'Unlock Blacklist',
+    tipIgnoreBlacklist: 'Momentarily permit blacklisted artists in this mix without removing them from your permanent blacklist.',
     tipNotRecentTitle: 'NOT Recently Played',
     tipNotRecent: 'Excludes songs played within the last 7 or 30 days.',
     tipLiveNotTitle: 'NOT Live',
@@ -794,6 +799,9 @@ const I18N = {
     tipNotLiked: 'Garantiza música 100% nueva excluyendo todas las canciones guardadas en tu biblioteca.',
     tipNotInPlaylistsTitle: 'NO en Ninguna Playlist',
     tipNotInPlaylists: 'Excluye cualquier canción que ya esté guardada en cualquiera de tus playlists de YouTube Music.',
+    discIgnoreBlacklistLabel: '🔓 Desbloquear Lista Negra para esta mezcla',
+    tipIgnoreBlacklistTitle: 'Desbloquear Lista Negra',
+    tipIgnoreBlacklist: 'Permite momentáneamente artistas bloqueados en esta mezcla sin quitarlos de tu lista negra permanente.',
     tipNotRecentTitle: 'NO Reproducidas Recientemente',
     tipNotRecent: 'Excluye canciones reproducidas en los últimos 7 o 30 días.',
     tipLiveNotTitle: 'Sin En Vivo',
@@ -1134,6 +1142,11 @@ function applyLanguage(lang) {
   if (notPlLabel) notPlLabel.textContent = t('notInPlaylistsLabel');
   DOM.discNotPlaylists?.parentElement?.setAttribute('data-tooltip-title', t('tipNotInPlaylistsTitle'));
   DOM.discNotPlaylists?.parentElement?.setAttribute('data-tooltip', t('tipNotInPlaylists'));
+
+  const ignoreBlLabel = document.getElementById('disc-ignore-blacklist-label');
+  if (ignoreBlLabel) ignoreBlLabel.textContent = t('discIgnoreBlacklistLabel');
+  DOM.discIgnoreBlacklist?.parentElement?.setAttribute('data-tooltip-title', t('tipIgnoreBlacklistTitle'));
+  DOM.discIgnoreBlacklist?.parentElement?.setAttribute('data-tooltip', t('tipIgnoreBlacklist'));
 
   const discRecentTitle = document.getElementById('disc-recent-title');
   if (discRecentTitle) discRecentTitle.textContent = t('notRecentlyPlayedTitle');
@@ -3556,6 +3569,9 @@ function initDiscoveryPanel() {
   DOM.discNotPlaylists?.addEventListener('change', (e) => {
     state.discovery.notInPlaylists = e.target.checked;
   });
+  DOM.discIgnoreBlacklist?.addEventListener('change', (e) => {
+    state.discovery.ignoreBlacklist = e.target.checked;
+  });
   DOM.discRecentDaysRadios?.forEach(radio => {
     radio.addEventListener('change', (e) => {
       if (e.target.checked) {
@@ -3965,7 +3981,8 @@ async function generateDiscoveryMix() {
     hidden_gem_target: state.discovery.hiddenGemTarget || 'artist',
     target_count: state.discovery.targetCount,
     true_shuffle: state.discovery.trueShuffle,
-    avoid_consecutive_artists: state.discovery.avoidConsecutiveArtists
+    avoid_consecutive_artists: state.discovery.avoidConsecutiveArtists,
+    ignore_blacklist: state.discovery.ignoreBlacklist || false
   };
 
   try {

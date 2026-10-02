@@ -217,7 +217,8 @@ data class DiscoveryGenerateRequest(
     val hidden_gem_target: String = "artist",
     val target_count: Int = 25,
     val true_shuffle: Boolean = false,
-    val avoid_consecutive_artists: Boolean = true
+    val avoid_consecutive_artists: Boolean = true,
+    val ignore_blacklist: Boolean = false
 )
 
 @Serializable
@@ -978,10 +979,12 @@ fun main() {
                     var pool = candidates.distinctBy { it.id }
 
                     // 2. Strict Negative Exclusions
-                    // A. Permanent Blacklist
-                    val blacklistedNames = localBlacklistManager.getNames()
-                    if (blacklistedNames.isNotEmpty()) {
-                        pool = pool.filterNot { ArtistUtils.isTrackBlockedByBlacklist(it.artist, blacklistedNames) }
+                    // A. Permanent Blacklist (can be momentarily unlocked/ignored via req.ignore_blacklist)
+                    if (!req.ignore_blacklist) {
+                        val blacklistedNames = localBlacklistManager.getNames()
+                        if (blacklistedNames.isNotEmpty()) {
+                            pool = pool.filterNot { ArtistUtils.isTrackBlockedByBlacklist(it.artist, blacklistedNames) }
+                        }
                     }
 
                     // B. Excluded Artists (modifier == "NOT")

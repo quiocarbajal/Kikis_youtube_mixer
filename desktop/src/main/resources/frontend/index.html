@@ -410,6 +410,10 @@
               <input type="checkbox" id="disc-not-playlists" checked>
               <span class="switch-label">NOT in Any of My Playlists</span>
             </label>
+            <label class="switch-row" data-tooltip-title="Unlock Blacklist" data-tooltip="Momentarily permit blacklisted artists in this mix without removing them from your permanent blacklist.">
+              <input type="checkbox" id="disc-ignore-blacklist">
+              <span class="switch-label" id="disc-ignore-blacklist-label">🔓 Unlock Blacklist for this mix</span>
+            </label>
             <!-- NOT Recently Played with dedicated top title -->
             <div class="discovery-sub-block" data-tooltip-title="NOT Recently Played Filter" data-tooltip="Excludes songs played within the last 7 or 30 days.">
               <div class="discovery-sub-label" id="disc-recent-title">🕒 NOT Recently Played:</div>
@@ -433,11 +437,11 @@
               <div class="discovery-sub-label" id="disc-live-mode-title">🎤 Versiones En Vivo:</div>
               <div class="radio-pill-group recent-pill-group">
                 <label class="radio-pill" data-tooltip-title="Sin En Vivo" data-tooltip="Excluye grabaciones en vivo, recitales, acústicos y temas en directo.">
-                  <input type="radio" name="disc-live-mode" value="not_live" checked>
+                  <input type="radio" name="disc-live-mode" value="not_live">
                   <span id="disc-live-not-label">🚫 Sin En Vivo</span>
                 </label>
                 <label class="radio-pill" data-tooltip-title="Todas" data-tooltip="Permite tanto canciones de estudio como versiones en vivo.">
-                  <input type="radio" name="disc-live-mode" value="any">
+                  <input type="radio" name="disc-live-mode" value="any" checked>
                   <span id="disc-live-any-label">Todas</span>
                 </label>
                 <label class="radio-pill" data-tooltip-title="Solo En Vivo" data-tooltip="Busca y filtra exclusivamente versiones en vivo, recitales y acústicos en directo.">
@@ -452,11 +456,11 @@
               <div class="discovery-sub-label" id="disc-remix-mode-title">🎛️ Remix / Remaster:</div>
               <div class="radio-pill-group recent-pill-group">
                 <label class="radio-pill" data-tooltip-title="Sin Remix" data-tooltip="Excluye versiones remix, club mix, VIP edits y remasterizaciones.">
-                  <input type="radio" name="disc-remix-mode" value="not_remix" checked>
+                  <input type="radio" name="disc-remix-mode" value="not_remix">
                   <span id="disc-remix-not-label">🚫 Sin Remix</span>
                 </label>
                 <label class="radio-pill" data-tooltip-title="Todas" data-tooltip="Permite tanto temas originales como remixes y versiones remasterizadas.">
-                  <input type="radio" name="disc-remix-mode" value="any">
+                  <input type="radio" name="disc-remix-mode" value="any" checked>
                   <span id="disc-remix-any-label">Todas</span>
                 </label>
                 <label class="radio-pill" data-tooltip-title="Solo Remix / Remaster" data-tooltip="Busca y filtra exclusivamente remixes, club mixes, versiones VIP y temas remasterizados.">
