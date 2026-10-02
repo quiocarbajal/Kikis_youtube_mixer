@@ -105,6 +105,7 @@ const DOM = {
   shuffleActiveListBtn: document.getElementById('shuffle-active-list-btn'),
   locatePlayingBtn: document.getElementById('locate-playing-btn'),
   saveAsPlaylistBtn: document.getElementById('save-as-playlist-btn'),
+  bakeShuffleBtn: document.getElementById('bake-shuffle-btn'),
   resetOrderBtn: document.getElementById('reset-order-btn'),
   saveOrderBtn: document.getElementById('save-order-btn'),
   lockOrderBtn: document.getElementById('lock-order-btn'),
@@ -236,6 +237,8 @@ const DOM = {
   settingsModal: document.getElementById('settings-modal'),
   closeSettingsModal: document.getElementById('close-settings-modal'),
   closeSettingsBtnBottom: document.getElementById('close-settings-btn-bottom'),
+  settingsCookieInput: document.getElementById('settings-cookie-input'),
+  saveCookieBtn: document.getElementById('save-cookie-btn'),
   saveCredentialsBtn: document.getElementById('save-credentials-btn'),
   settingsClientId: document.getElementById('settings-client-id'),
   settingsClientSecret: document.getElementById('settings-client-secret'),
@@ -2218,12 +2221,11 @@ function getHeartSvg(isLiked) {
 async function loadLikedTrackIds() {
   try {
     const res = await api('/api/tracks/liked-ids');
-    if (res && Array.isArray(res.liked_ids)) {
-      state.likedTrackIds = new Set(res.liked_ids);
-      const countLikedBadge = document.getElementById('count-liked');
-      if (countLikedBadge) {
-        countLikedBadge.textContent = res.liked_ids.length;
-      }
+    const ids = Array.isArray(res) ? res : (res && Array.isArray(res.liked_ids) ? res.liked_ids : []);
+    state.likedTrackIds = new Set(ids);
+    const countLikedBadge = document.getElementById('count-liked');
+    if (countLikedBadge) {
+      countLikedBadge.textContent = ids.length;
     }
   } catch (e) {
     console.error('Failed to load liked track IDs:', e);
@@ -5053,6 +5055,39 @@ function initEventListeners() {
     showToast('🗑️ Cleared workspace queue. (Press Cmd+Z to undo or click 🔄 Reload to restore)');
   });
   DOM.saveAsPlaylistBtn?.addEventListener('click', () => openCreatePlaylistModal(true));
+  DOM.bakeShuffleBtn?.addEventListener('click', async () => {
+    if (!state.tracks || state.tracks.length === 0) {
+      showToast(state.currentLang === 'es' ? '⚠️ La cola activa está vacía' : '⚠️ Active queue is empty', 'warning');
+      return;
+    }
+    const isEs = state.currentLang === 'es';
+    const dateStr = new Date().toLocaleDateString();
+    showConfirmModal({
+      title: isEs ? '🔥 Bake Shuffle a YouTube Music' : '🔥 Bake Shuffle to YouTube Music',
+      message: isEs
+        ? `Se creará una nueva playlist permanente en YouTube Music con las ${state.tracks.length} canciones en su orden aleatorio actual.`
+        : `This will create a new static playlist on YouTube Music containing these ${state.tracks.length} songs in their current randomized order.`,
+      showInput: true,
+      inputValue: `Bake Shuffle - ${dateStr}`,
+      inputLabel: isEs ? 'Nombre de la Playlist:' : 'Playlist Name:',
+      confirmText: isEs ? '🔥 Bake & Exportar' : '🔥 Bake & Export',
+      onConfirm: async () => {
+        const plName = DOM.confirmModalInput.value.trim() || `Bake Shuffle - ${dateStr}`;
+        DOM.confirmModal.classList.add('hidden');
+        showToast(isEs ? '🔥 Guardando y exportando a YouTube Music...' : '🔥 Baking and exporting to YouTube Music...', 'info');
+        try {
+          const res = await api('/api/queue/bake-shuffle', {
+            method: 'POST',
+            body: JSON.stringify({ name: plName })
+          });
+          showToast(res.message || (isEs ? '✅ ¡Playlist exportada con éxito!' : '✅ Playlist baked and exported successfully!'));
+          await loadPlaylists();
+        } catch (e) {
+          showToast('Export error: ' + e.message, 'error');
+        }
+      }
+    });
+  });
   DOM.resetOrderBtn?.addEventListener('click', resetToUserOrder);
   DOM.saveOrderBtn?.addEventListener('click', saveAsUserOrder);
   DOM.lockOrderBtn?.addEventListener('click', () => {
@@ -5169,7 +5204,26 @@ function initEventListeners() {
     }
   });
 
-  // Playlist Context Menu Actions (Sync, Rename, Delete)
+  // Playlist Context Menu Actions (Export, Sync, Rename, Delete)
+  document.getElementById('ctx-playlist-export')?.addEventListener('click', async () => {
+    if (!activeContextMenuPlaylist) return;
+    const p = activeContextMenuPlaylist;
+    const isEs = state.currentLang === 'es';
+    showToast(isEs ? `☁️ Exportando "${p.name}" a YouTube Music...` : `☁️ Exporting "${p.name}" to YouTube Music...`, 'info');
+    try {
+      const res = await api(`/api/playlists/${p.id}/export`, {
+        method: 'POST'
+      });
+      showToast(res.message || (isEs ? '✅ ¡Playlist exportada a YouTube Music!' : '✅ Playlist exported to YouTube Music!'));
+      await loadPlaylists();
+      if (state.activeView === p.id) {
+        await loadTracks();
+      }
+    } catch (e) {
+      showToast('Export error: ' + e.message, 'error');
+    }
+  });
+
   document.getElementById('ctx-playlist-sync')?.addEventListener('click', () => {
     if (!activeContextMenuPlaylist) return;
     handleSyncPlaylist(activeContextMenuPlaylist);
@@ -5244,11 +5298,16 @@ function initEventListeners() {
 
   async function triggerLogin() {
     try {
-      showToast('Connecting to YouTube Music...');
-      const auth = await api('/api/auth/login');
-      if (auth.auth_url) {
-        window.location.href = auth.auth_url;
-      }
+      const isEs = state.currentLang === 'es';
+      showToast(isEs ? '🌐 Abriendo ventana de inicio de sesión de Google / YouTube Music...' : '🌐 Opening Google / YouTube Music login window...', 'info');
+      await api('/api/auth/login', { method: 'POST' });
+      
+      // Start polling for successful sign-in
+      startAuthPoller();
+      
+      showToast(isEs 
+        ? 'ℹ️ Inicia sesión con tu cuenta de Google en la ventana abierta. La app capturará la sesión automáticamente.' 
+        : 'ℹ️ Sign in with your Google account in the opened window. The app will automatically connect once signed in.', 'info', 7000);
     } catch (e) {
       showToast('Login error: ' + e.message, 'error');
     }
@@ -5257,6 +5316,27 @@ function initEventListeners() {
   DOM.loginBtn?.addEventListener('click', triggerLogin);
   DOM.modal1ClickLoginBtn?.addEventListener('click', triggerLogin);
   DOM.heroLoginBtn?.addEventListener('click', triggerLogin);
+
+  DOM.saveCookieBtn?.addEventListener('click', async () => {
+    const cookie = DOM.settingsCookieInput?.value.trim() || '';
+    if (!cookie) {
+      showToast(state.currentLang === 'es' ? '⚠️ Por favor ingresa una cookie de sesión válida' : '⚠️ Please enter a valid session cookie', 'warning');
+      return;
+    }
+    try {
+      showToast(state.currentLang === 'es' ? 'Guardando sesión y conectando...' : 'Saving session and connecting...', 'info');
+      await api('/api/auth/cookie', {
+        method: 'POST',
+        body: JSON.stringify({ cookie })
+      });
+      DOM.settingsModal?.classList.add('hidden');
+      showToast(state.currentLang === 'es' ? '✅ ¡Conectado! Sincronizando biblioteca...' : '✅ Connected! Syncing library...');
+      await checkStatus();
+      await triggerAutoSync(false);
+    } catch (e) {
+      showToast('Connection error: ' + e.message, 'error');
+    }
+  });
 
   DOM.logoutBtn?.addEventListener('click', () => {
     showConfirmModal({
@@ -5269,10 +5349,13 @@ function initEventListeners() {
           showToast('🚪 Logged out successfully');
           DOM.confirmModal.classList.add('hidden');
           DOM.settingsModal.classList.add('hidden');
+          if (DOM.settingsCookieInput) DOM.settingsCookieInput.value = '';
           state.authenticated = false;
           state.tracks = [];
           state.allPlaylists = [];
           await checkStatus();
+          await loadPlaylists();
+          await loadTracks();
         } catch (e) {
           showToast(e.message, 'error');
         }

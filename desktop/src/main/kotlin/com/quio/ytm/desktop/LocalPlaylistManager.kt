@@ -131,6 +131,19 @@ data class ExecuteSyncResponse(
     val playlist: PlaylistSummaryDto
 )
 
+@Serializable
+data class LibraryBackupSnapshot(
+    val version: String = "1.0",
+    val timestamp: Long = System.currentTimeMillis(),
+    val iso_date: String = "",
+    val reason: String = "sync_backup",
+    val liked_songs_count: Int = 0,
+    val playlists_count: Int = 0,
+    val total_tracks_count: Int = 0,
+    val liked_songs: List<TrackDto> = emptyList(),
+    val playlists: List<LocalPlaylist> = emptyList()
+)
+
 class LocalPlaylistManager(
     private val storageFile: File = File(System.getProperty("user.dir"), "local_playlists.json")
 ) {
@@ -377,5 +390,69 @@ class LocalPlaylistManager(
         playlists[idx] = updated
         saveToDisk()
         return updated.toSummary()
+    }
+
+    val backupDir: File = File(storageFile.parentFile ?: File("."), "backups")
+
+    @Synchronized
+    fun createBackupSnapshot(reason: String = "sync_backup"): File? {
+        try {
+            if (!backupDir.exists()) {
+                backupDir.mkdirs()
+            }
+            val liked = getPlaylist("liked_songs")
+            val all = getAll()
+            val userPlaylists = all.filter { it.id != "liked_songs" }
+            val totalTracks = all.sumOf { it.total_tracks }
+            val now = System.currentTimeMillis()
+            val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss")
+            val filename = "ytm_backup_${dateFormat.format(java.util.Date(now))}.json"
+            val backupFile = File(backupDir, filename)
+            val latestBackupFile = File(backupDir, "latest_backup.json")
+
+            val snapshot = LibraryBackupSnapshot(
+                version = "1.0",
+                timestamp = now,
+                iso_date = java.time.Instant.ofEpochMilli(now).toString(),
+                reason = reason,
+                liked_songs_count = liked?.tracks?.size ?: 0,
+                playlists_count = userPlaylists.size,
+                total_tracks_count = totalTracks,
+                liked_songs = liked?.tracks ?: emptyList(),
+                playlists = all
+            )
+
+            val jsonStr = json.encodeToString(snapshot)
+            backupFile.writeText(jsonStr)
+            latestBackupFile.writeText(jsonStr)
+            println("✅ Automated library backup snapshot created: ${backupFile.absolutePath}")
+            return backupFile
+        } catch (e: Exception) {
+            System.err.println("Failed to create library backup snapshot: ${e.message}")
+            return null
+        }
+    }
+
+    @Synchronized
+    fun restoreBackup(backupFile: File): Boolean {
+        try {
+            if (!backupFile.exists()) return false
+            val content = backupFile.readText()
+            val snapshot = json.decodeFromString<LibraryBackupSnapshot>(content)
+            playlists.clear()
+            playlists.addAll(snapshot.playlists)
+            ensureLikedSongsPlaylist()
+            saveToDisk()
+            return true
+        } catch (e: Exception) {
+            System.err.println("Failed to restore backup: ${e.message}")
+            return false
+        }
+    }
+
+    @Synchronized
+    fun getLatestBackup(): File? {
+        val latest = File(backupDir, "latest_backup.json")
+        return if (latest.exists()) latest else null
     }
 }

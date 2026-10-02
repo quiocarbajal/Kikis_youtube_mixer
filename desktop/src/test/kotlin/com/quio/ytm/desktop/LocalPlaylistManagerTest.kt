@@ -106,4 +106,85 @@ class LocalPlaylistManagerTest {
         assertEquals("1", reordered?.get(1)?.id)
         assertEquals("2", reordered?.get(2)?.id)
     }
+
+    @Test
+    fun testMarkSyncedAndExportState() {
+        val t1 = TrackDto(id = "1", uri = "yt:track:1", title = "S1", artist = "A1", primary_artist = "A1", album = "", duration_ms = 1000, durationMs = 1000, thumbnailUrl = "", album_art_url = "", loudnessDb = 0.0)
+        val created = manager.savePlaylist(
+            name = "Export Mix",
+            description = "Test Export",
+            tracks = listOf(t1),
+            overwrite = false,
+            playlistId = null
+        )
+
+        assertEquals("Export Mix", created.name)
+        assertEquals(false, created.is_synced)
+
+        val synced = manager.markSynced(created.id, "PL_remote_123")
+        assertNotNull(synced)
+        assertEquals("PL_remote_123", synced?.yt_playlist_id)
+        assertEquals(true, synced?.is_synced)
+
+        val retrieved = manager.getPlaylist(created.id)
+        assertEquals(true, retrieved?.is_synced)
+        assertEquals("PL_remote_123", retrieved?.yt_playlist_id)
+    }
+
+    @Test
+    fun testMergeTracksDeduplication() {
+        val t1 = TrackDto(id = "1", uri = "yt:track:1", title = "S1", artist = "A1", primary_artist = "A1", album = "", duration_ms = 1000, durationMs = 1000, thumbnailUrl = "", album_art_url = "", loudnessDb = 0.0)
+        val t2 = TrackDto(id = "2", uri = "yt:track:2", title = "S2", artist = "A2", primary_artist = "A2", album = "", duration_ms = 1000, durationMs = 1000, thumbnailUrl = "", album_art_url = "", loudnessDb = 0.0)
+        val t3 = TrackDto(id = "3", uri = "yt:track:3", title = "S3", artist = "A3", primary_artist = "A3", album = "", duration_ms = 1000, durationMs = 1000, thumbnailUrl = "", album_art_url = "", loudnessDb = 0.0)
+
+        val created = manager.savePlaylist("Merge Mix", "", listOf(t1, t2), false, null)
+        val mergedSummary = manager.mergeTracks(created.id, listOf(t2, t3))
+
+        assertNotNull(mergedSummary)
+        assertEquals(3, mergedSummary?.total_tracks)
+
+        val pl = manager.getPlaylist(created.id)
+        assertEquals(listOf("1", "2", "3"), pl?.tracks?.map { it.id })
+    }
+
+    @Test
+    fun testCreateAndRestoreBackupSnapshot() {
+        val t1 = TrackDto(id = "1", uri = "yt:track:1", title = "Liked 1", artist = "A1", primary_artist = "A1", album = "", duration_ms = 1000, durationMs = 1000, thumbnailUrl = "", album_art_url = "", loudnessDb = 0.0)
+        val t2 = TrackDto(id = "2", uri = "yt:track:2", title = "Playlist Song 1", artist = "A2", primary_artist = "A2", album = "", duration_ms = 1000, durationMs = 1000, thumbnailUrl = "", album_art_url = "", loudnessDb = 0.0)
+
+        manager.addTrack("liked_songs", t1)
+        val pl = manager.savePlaylist("Chill Mix", "Test Desc", listOf(t2), false, null)
+
+        // 1. Create backup snapshot
+        val backupFile = manager.createBackupSnapshot("test_snapshot")
+        assertNotNull(backupFile)
+        assertTrue(backupFile?.exists() == true)
+
+        val latest = manager.getLatestBackup()
+        assertNotNull(latest)
+        assertTrue(latest?.exists() == true)
+
+        // 2. Modify library (delete playlist and clear liked songs)
+        manager.deletePlaylist(pl.id)
+        manager.removeTrack("liked_songs", "1")
+        assertEquals(0, manager.getPlaylist("liked_songs")?.total_tracks)
+        assertEquals(null, manager.getPlaylist(pl.id))
+
+        // 3. Restore backup
+        val restored = manager.restoreBackup(backupFile!!)
+        assertTrue(restored)
+
+        val restoredLiked = manager.getPlaylist("liked_songs")
+        assertEquals(1, restoredLiked?.total_tracks)
+        assertEquals("1", restoredLiked?.tracks?.get(0)?.id)
+
+        val restoredPl = manager.getPlaylist(pl.id)
+        assertNotNull(restoredPl)
+        assertEquals("Chill Mix", restoredPl?.name)
+        assertEquals(1, restoredPl?.total_tracks)
+        assertEquals("2", restoredPl?.tracks?.get(0)?.id)
+
+        // Clean up backup dir
+        manager.backupDir.deleteRecursively()
+    }
 }

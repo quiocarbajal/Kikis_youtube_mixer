@@ -131,6 +131,9 @@
             <button id="save-as-playlist-btn" class="btn btn-sm btn-secondary" data-tooltip-title="Save as Playlist" data-tooltip="Save or overwrite a YouTube Music playlist with the songs currently in your workspace.">
               💾 Save as Playlist
             </button>
+            <button id="bake-shuffle-btn" class="btn btn-sm btn-ghost" data-tooltip-title="Bake Shuffle" data-tooltip="Write current randomized queue sequence to YouTube Music as a static playlist.">
+              🔥 Bake Shuffle
+            </button>
             <button id="lock-order-btn" class="btn btn-sm btn-ghost" data-tooltip-title="Order Lock" data-tooltip="Toggle locking to prevent accidental drag reordering or shuffling.">
               🔓 Unlocked
             </button>
@@ -612,7 +615,8 @@
 
   <!-- Custom Right-Click Context Menu for Playlists -->
   <div id="playlist-context-menu" class="context-menu hidden">
-    <div class="context-item" id="ctx-playlist-sync">🔄 Sync to YouTube Music</div>
+    <div class="context-item" id="ctx-playlist-export">☁️ Export to YouTube Music</div>
+    <div class="context-item" id="ctx-playlist-sync">🔄 Sync with YouTube Music</div>
     <div class="context-item" id="ctx-playlist-rename">✏️ Rename Playlist</div>
     <div class="context-divider"></div>
     <div class="context-item danger" id="ctx-playlist-delete">🗑️ Delete Playlist</div>
@@ -715,14 +719,28 @@
         <button id="close-settings-modal" class="icon-btn">✕</button>
       </div>
       <div class="modal-body">
-        <div class="settings-group" style="text-align: center; padding: 12px 0;">
-          <button id="modal-1click-login-btn" class="btn btn-primary" style="width: 100%; padding: 12px; font-size: 14px; font-weight: 600;">
-            🟢 1-Click Log in with YouTube Music
+        <div class="settings-group" style="text-align: center; padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
+          <button type="button" id="modal-1click-login-btn" class="btn btn-primary" style="width: 100%; padding: 12px; font-size: 14px; font-weight: 600;">
+            🟢 1-Click Connect with YouTube Music
           </button>
           <p style="font-size: 11px; color: var(--text-secondary); margin-top: 8px;">
-            Connects your regular YouTube Music account. No developer account required.
+            Opens a secure Google sign-in window. Connects and syncs your library automatically upon sign-in.
           </p>
         </div>
+
+        <details style="margin-top: 10px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
+          <summary style="font-size: 11px; color: var(--text-muted); cursor: pointer; user-select: none;">
+            🔑 Advanced: Manual Session Cookie Paste (Optional)
+          </summary>
+          <div style="margin-top: 8px;">
+            <div class="form-field">
+              <textarea id="settings-cookie-input" rows="2" placeholder="Paste Cookie header or SAPISID from music.youtube.com..." style="width: 100%; font-size: 11px; padding: 8px; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border-color); color: var(--text-color); font-family: monospace; resize: vertical;"></textarea>
+            </div>
+            <button type="button" id="save-cookie-btn" class="btn btn-secondary btn-sm" style="width: 100%; margin-top: 6px;">
+              💾 Save Cookie & Sync Library
+            </button>
+          </div>
+        </details>
 
         <div class="settings-group">
           <h4>Playback Preferences</h4>

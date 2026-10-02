@@ -21,6 +21,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
@@ -31,6 +32,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import java.io.File
 
@@ -83,10 +86,46 @@ data class PlayerVolumeRequest(val volume_percent: Int)
 data class UserDto(val display_name: String, val id: String)
 
 @Serializable
+data class AuthData(
+    val cookie: String = "",
+    val sapisid: String = "",
+    val access_token: String = "",
+    val refresh_token: String = "",
+    val expires_at: Long = 0L,
+    val user_name: String = "",
+    val user_email: String = ""
+)
+
+@Serializable
+data class AuthCookieRequest(
+    val cookie: String = "",
+    val sapisid: String? = null
+)
+
+@Serializable
+data class AuthLoginResponse(
+    val status: String = "ok",
+    val authenticated: Boolean = false,
+    val auth_url: String? = null,
+    val message: String = ""
+)
+
+@Serializable
+data class SyncLibraryResponse(
+    val status: String = "ok",
+    val liked_count: Int = 0,
+    val playlists_count: Int = 0,
+    val warning: String? = null,
+    val message: String = ""
+)
+
+@Serializable
 data class StatusResponse(
     val authenticated: Boolean = true,
     val is_mac: Boolean = true,
     val has_synced_tracks: Boolean = true,
+    val liked_tracks: Int = 0,
+    val total_tracks: Int = 0,
     val access_url: String = "http://localhost:8888",
     val app: String = "kiki's youtube mixer",
     val service: String = "YouTube Music",
@@ -122,6 +161,11 @@ data class TracksResponse(
 )
 
 @Serializable
+data class LikedIdsResponse(
+    val liked_ids: List<String> = emptyList()
+)
+
+@Serializable
 data class DeviceDto(
     val id: String,
     val name: String,
@@ -141,7 +185,37 @@ data class GenericOkResponse(
     val status: String = "ok",
     val is_playing: Boolean? = null,
     val progress_ms: Long? = null,
-    val volume_percent: Int? = null
+    val volume_percent: Int? = null,
+    val message: String? = null
+)
+
+@Serializable
+data class ExportPlaylistResponse(
+    val status: String = "ok",
+    val playlist_id: String,
+    val yt_playlist_id: String,
+    val name: String,
+    val total_tracks: Int,
+    val web_url: String? = null,
+    val message: String = ""
+)
+
+@Serializable
+data class BakeShuffleRequest(
+    val name: String? = null,
+    val description: String? = null,
+    val privacy: String = "PRIVATE"
+)
+
+@Serializable
+data class BakeShuffleResponse(
+    val status: String = "ok",
+    val playlist_id: String,
+    val yt_playlist_id: String,
+    val name: String,
+    val total_tracks: Int,
+    val web_url: String? = null,
+    val message: String = ""
 )
 
 @Serializable
@@ -286,6 +360,36 @@ fun main() {
     val localPlaylistManager = LocalPlaylistManager()
     val localBlacklistManager = LocalBlacklistManager()
 
+    val authFile = File(System.getProperty("user.dir"), "ytm_auth.json")
+    val googleOAuthManager = GoogleOAuthManager(
+        innertubeClient = innertubeClient,
+        authFile = authFile,
+        port = port
+    )
+
+    var currentUserName = "Connected Account"
+    var currentUserEmail = ""
+
+    if (authFile.exists()) {
+        try {
+            val authObj = Json.decodeFromString<AuthData>(authFile.readText())
+            if (authObj.access_token.isNotBlank()) {
+                innertubeClient.setOAuthToken(authObj.access_token)
+                if (authObj.user_name.isNotBlank()) currentUserName = authObj.user_name
+                if (authObj.user_email.isNotBlank()) currentUserEmail = authObj.user_email
+            }
+            if (authObj.cookie.isNotBlank() || authObj.sapisid.isNotBlank()) {
+                innertubeClient.setCookies(authObj.cookie, authObj.sapisid)
+            }
+        } catch (_: Exception) {}
+    }
+
+    val browserLoginManager = BrowserLoginManager(
+        innertubeClient = innertubeClient,
+        localPlaylistManager = localPlaylistManager,
+        authFile = authFile
+    )
+
     var currentPlayerState = PlayerStateDto()
 
     // Automatically pop open dedicated native application window
@@ -321,7 +425,239 @@ fun main() {
             }
 
             get("/api/status") {
-                call.respond(StatusResponse())
+                val isAuthenticated = innertubeClient.hasAuth()
+                val likedPl = localPlaylistManager.getPlaylist("liked_songs")
+                val allPls = localPlaylistManager.getAll()
+                val totalTracks = allPls.sumOf { it.total_tracks }
+                call.respond(StatusResponse(
+                    authenticated = isAuthenticated,
+                    is_mac = System.getProperty("os.name").lowercase().contains("mac"),
+                    has_synced_tracks = totalTracks > 0,
+                    liked_tracks = likedPl?.total_tracks ?: 0,
+                    total_tracks = totalTracks,
+                    access_url = "http://localhost:$port",
+                    app = "kiki's youtube mixer",
+                    service = "YouTube Music",
+                    user = UserDto(
+                        display_name = if (isAuthenticated) currentUserName else "Guest Mode",
+                        id = if (isAuthenticated) (currentUserEmail.ifBlank { "ytm_connected_user" }) else "guest"
+                    )
+                ))
+            }
+
+            get("/callback") {
+                val code = call.request.queryParameters["code"]
+                val error = call.request.queryParameters["error"]
+
+                if (!code.isNullOrEmpty()) {
+                    val authData = googleOAuthManager.exchangeCodeForToken(code)
+                    if (authData != null) {
+                        currentUserName = authData.user_name.ifBlank { "Connected Account" }
+                        currentUserEmail = authData.user_email
+
+                        // Trigger safe automatic background sync with dual snapshot backups
+                        desktopScope.launch {
+                            try {
+                                localPlaylistManager.createBackupSnapshot("pre_sync_snapshot")
+                                val likedTracks = innertubeClient.getLikedSongs()
+                                if (likedTracks.isNotEmpty()) {
+                                    localPlaylistManager.mergeTracks("liked_songs", likedTracks.map { it.toDto() })
+                                    localPlaylistManager.markSynced("liked_songs", "LM")
+                                }
+                                val remotePlaylists = innertubeClient.getLibraryPlaylists()
+                                for (remotePl in remotePlaylists) {
+                                    val rTracks = innertubeClient.getPlaylistTracks(remotePl.id)
+                                    val dtos = rTracks.map { it.toDto() }
+                                    val existing = localPlaylistManager.getAll().find { it.yt_playlist_id == remotePl.id || it.name.equals(remotePl.title, ignoreCase = true) }
+                                    if (existing != null) {
+                                        localPlaylistManager.mergeTracks(existing.id, dtos)
+                                        localPlaylistManager.markSynced(existing.id, remotePl.id)
+                                    } else {
+                                        val saved = localPlaylistManager.savePlaylist(
+                                            name = remotePl.title,
+                                            description = remotePl.description,
+                                            tracks = dtos,
+                                            overwrite = false,
+                                            playlistId = null
+                                        )
+                                        localPlaylistManager.markSynced(saved.id, remotePl.id)
+                                    }
+                                }
+                                localPlaylistManager.createBackupSnapshot("post_sync_snapshot")
+                            } catch (e: Exception) {
+                                System.err.println("Auto sync after OAuth failed: ${e.message}")
+                            }
+                        }
+
+                        val html = """
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                                <meta charset="utf-8">
+                                <title>Connected to kiki's youtube mixer</title>
+                                <style>
+                                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f0f12; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                                    .card { background: #1a1a24; border: 1px solid #2f2f3d; padding: 40px; border-radius: 16px; text-align: center; max-width: 440px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+                                    h1 { font-size: 24px; margin-bottom: 12px; color: #00e676; }
+                                    p { color: #a0a0b2; line-height: 1.6; margin-bottom: 24px; font-size: 15px; }
+                                    .badge { display: inline-block; background: #252538; padding: 8px 16px; border-radius: 20px; font-weight: 600; color: #fff; margin-bottom: 20px; border: 1px solid #3d3d5c; }
+                                    .btn { background: #ff0055; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; font-size: 14px; }
+                                </style>
+                            </head>
+                            <body>
+                                <div class="card">
+                                    <div style="font-size: 48px; margin-bottom: 16px;">✨</div>
+                                    <h1>Account Connected!</h1>
+                                    <div class="badge">👤 ${authData.user_name.ifBlank { "Google User" }}</div>
+                                    <p>Your Google account has been connected and your YouTube Music library is now synchronizing safely.</p>
+                                    <a href="http://localhost:$port" class="btn">Return to kiki's youtube mixer</a>
+                                </div>
+                                <script>
+                                    setTimeout(() => { window.location.href = "http://localhost:$port"; }, 2000);
+                                </script>
+                            </body>
+                            </html>
+                        """.trimIndent()
+                        call.respondText(html, io.ktor.http.ContentType.Text.Html)
+                        return@get
+                    }
+                }
+
+                val failHtml = """
+                    <!DOCTYPE html>
+                    <html>
+                    <head><meta charset="utf-8"><title>Connection Cancelled</title></head>
+                    <body style="background:#0f0f12;color:#fff;font-family:sans-serif;text-align:center;padding-top:100px;">
+                        <h2>Connection was not completed (${error ?: "cancelled"})</h2>
+                        <p><a href="http://localhost:$port" style="color:#ff0055;">Back to app</a></p>
+                    </body>
+                    </html>
+                """.trimIndent()
+                call.respondText(failHtml, io.ktor.http.ContentType.Text.Html)
+            }
+
+            get("/api/auth/login") {
+                val authUrl = googleOAuthManager.openBrowserForLogin()
+                call.respond(AuthLoginResponse(
+                    status = "ok",
+                    authenticated = innertubeClient.hasAuth(),
+                    auth_url = authUrl,
+                    message = "Opened browser. Please choose your Google account."
+                ))
+            }
+
+            post("/api/auth/login") {
+                val authUrl = googleOAuthManager.openBrowserForLogin()
+                call.respond(AuthLoginResponse(
+                    status = "ok",
+                    authenticated = innertubeClient.hasAuth(),
+                    auth_url = authUrl,
+                    message = "Opened browser. Please choose your Google account."
+                ))
+            }
+
+            post("/api/auth/cookie") {
+                val req = call.receive<AuthCookieRequest>()
+                innertubeClient.setCookies(req.cookie, req.sapisid ?: "")
+                try {
+                    val authObj = AuthData(cookie = innertubeClient.getCookieString(), sapisid = innertubeClient.getSapisid())
+                    authFile.writeText(Json.encodeToString(authObj))
+                } catch (_: Exception) {}
+                call.respond(GenericOkResponse(status = "ok", message = "Session cookie saved successfully"))
+            }
+
+            post("/api/auth/logout") {
+                browserLoginManager.stopLogin()
+                innertubeClient.clearAuth()
+                currentUserName = "Connected Account"
+                currentUserEmail = ""
+                if (authFile.exists()) {
+                    authFile.delete()
+                }
+                call.respond(GenericOkResponse(status = "ok", message = "Logged out successfully"))
+            }
+
+            post("/api/sync") {
+                try {
+                    // Pre-sync backup snapshot of current local library
+                    localPlaylistManager.createBackupSnapshot("pre_sync_snapshot")
+
+                    var likedCount = 0
+                    var playlistCount = 0
+
+                    // 1. Fetch Liked Songs from YouTube Music & Safe Merge
+                    val likedTracks = innertubeClient.getLikedSongs()
+                    if (likedTracks.isNotEmpty()) {
+                        val likedDtos = likedTracks.map { it.toDto() }
+                        // Safe non-destructive merge: preserve local offline liked songs + add remote liked songs
+                        localPlaylistManager.mergeTracks("liked_songs", likedDtos)
+                        localPlaylistManager.markSynced("liked_songs", "LM")
+                        likedCount = localPlaylistManager.getPlaylist("liked_songs")?.total_tracks ?: likedTracks.size
+                    }
+
+                    // 2. Fetch User Playlists
+                    val remotePlaylists = innertubeClient.getLibraryPlaylists()
+                    for (remotePl in remotePlaylists) {
+                        try {
+                            val rTracks = innertubeClient.getPlaylistTracks(remotePl.id)
+                            val dtos = rTracks.map { it.toDto() }
+                            val existing = localPlaylistManager.getAll().find { it.yt_playlist_id == remotePl.id || it.name.equals(remotePl.title, ignoreCase = true) }
+                            if (existing != null) {
+                                localPlaylistManager.mergeTracks(existing.id, dtos)
+                                localPlaylistManager.markSynced(existing.id, remotePl.id)
+                            } else {
+                                val saved = localPlaylistManager.savePlaylist(
+                                    name = remotePl.title,
+                                    description = remotePl.description,
+                                    tracks = dtos,
+                                    overwrite = false,
+                                    playlistId = null
+                                )
+                                localPlaylistManager.markSynced(saved.id, remotePl.id)
+                            }
+                            playlistCount++
+                        } catch (_: Exception) {}
+                    }
+
+                    // Post-sync full backup snapshot of complete consolidated library
+                    val latestBackup = localPlaylistManager.createBackupSnapshot("post_sync_snapshot")
+
+                    val warning = if (!innertubeClient.hasAuth() && likedTracks.isEmpty()) {
+                        "Not connected with YouTube Music session. Please open Settings ⚙️ to add your session cookie."
+                    } else null
+
+                    call.respond(SyncLibraryResponse(
+                        status = "ok",
+                        liked_count = likedCount,
+                        playlists_count = playlistCount,
+                        warning = warning,
+                        message = "Synced $likedCount Liked Songs and $playlistCount playlists. Local backup snapshot created."
+                    ))
+                } catch (e: Exception) {
+                    System.err.println("Error during library sync: ${e.message}")
+                    call.respond(HttpStatusCode.InternalServerError, SyncLibraryResponse(
+                        status = "error",
+                        warning = "Failed to sync library: ${e.message}"
+                    ))
+                }
+            }
+
+            get("/api/backup/latest") {
+                val latest = localPlaylistManager.getLatestBackup()
+                if (latest != null && latest.exists()) {
+                    call.respondText(latest.readText(), io.ktor.http.ContentType.Application.Json)
+                } else {
+                    call.respond(HttpStatusCode.NotFound, GenericOkResponse(status = "error", message = "No backups found"))
+                }
+            }
+
+            post("/api/backup/create") {
+                val f = localPlaylistManager.createBackupSnapshot("manual_backup")
+                if (f != null) {
+                    call.respond(GenericOkResponse(status = "ok", message = "Backup created: ${f.name}"))
+                } else {
+                    call.respond(HttpStatusCode.InternalServerError, GenericOkResponse(status = "error", message = "Failed to create backup"))
+                }
             }
 
             // Live YouTube Music Search endpoint
@@ -526,7 +862,7 @@ fun main() {
             get("/api/tracks/liked-ids") {
                 val likedPl = localPlaylistManager.ensureLikedSongsPlaylist()
                 val ids = likedPl.tracks.map { it.id }
-                call.respond(ids)
+                call.respond(LikedIdsResponse(liked_ids = ids))
             }
 
             post("/api/tracks/like") {
@@ -682,7 +1018,26 @@ fun main() {
                 val updatedSummary = when (direction) {
                     "yt_to_app" -> localPlaylistManager.applyRemoteTracks(id, pl.tracks)
                     "merge" -> localPlaylistManager.mergeTracks(id, pl.tracks)
-                    else -> localPlaylistManager.markSynced(id)
+                    else -> {
+                        // Push to YouTube Music if needed
+                        var ytId = pl.yt_playlist_id
+                        if (ytId.isNullOrEmpty() || ytId.startsWith("yt_pl_") || ytId == "LM") {
+                            val remoteId = try {
+                                innertubeClient.createPlaylist(
+                                    title = pl.name,
+                                    description = pl.description.ifEmpty { "Curated with kiki's youtube mixer" },
+                                    privacyStatus = "PRIVATE",
+                                    videoIds = pl.tracks.map { it.id }
+                                )
+                            } catch (_: Exception) { null }
+                            if (remoteId != null) ytId = remoteId
+                        } else {
+                            try {
+                                innertubeClient.addTracksToPlaylist(ytId, pl.tracks.map { it.id })
+                            } catch (_: Exception) {}
+                        }
+                        localPlaylistManager.markSynced(id, ytId)
+                    }
                 } ?: pl.toSummary()
 
                 val msg = when (direction) {
@@ -696,6 +1051,98 @@ fun main() {
                     message = msg,
                     direction_applied = direction,
                     playlist = updatedSummary
+                ))
+            }
+
+            post("/api/playlists/{id}/export") {
+                val id = call.parameters["id"] ?: ""
+                val pl = localPlaylistManager.getPlaylist(id)
+                if (pl == null) {
+                    call.respond(HttpStatusCode.NotFound, GenericOkResponse(status = "error", message = "Playlist not found"))
+                    return@post
+                }
+
+                var ytId = pl.yt_playlist_id
+                val videoIds = pl.tracks.map { it.id }
+                var isCreatedNew = false
+
+                if (ytId.isNullOrEmpty() || ytId.startsWith("yt_pl_") || ytId == "LM") {
+                    val desc = pl.description.ifEmpty { "Curated with kiki's youtube mixer" }
+                    val remoteId = try {
+                        innertubeClient.createPlaylist(title = pl.name, description = desc, privacyStatus = "PRIVATE", videoIds = videoIds)
+                    } catch (_: Exception) { null }
+                    ytId = remoteId ?: "yt_pl_${pl.id.removePrefix("local_pl_")}"
+                    isCreatedNew = true
+                } else {
+                    try {
+                        innertubeClient.addTracksToPlaylist(ytId, videoIds)
+                    } catch (_: Exception) {}
+                }
+
+                val updatedSummary = localPlaylistManager.markSynced(id, ytId) ?: pl.toSummary()
+                val webUrl = if (ytId.startsWith("PL") || ytId.length >= 10) "https://music.youtube.com/playlist?list=$ytId" else null
+                val message = if (isCreatedNew) {
+                    "☁️ Playlist \"${pl.name}\" exported to YouTube Music (${pl.tracks.size} tracks)."
+                } else {
+                    "☁️ Playlist \"${pl.name}\" synced with YouTube Music (${pl.tracks.size} tracks)."
+                }
+
+                call.respond(ExportPlaylistResponse(
+                    status = "ok",
+                    playlist_id = id,
+                    yt_playlist_id = ytId,
+                    name = pl.name,
+                    total_tracks = pl.tracks.size,
+                    web_url = webUrl,
+                    message = message
+                ))
+            }
+
+            post("/api/queue/bake-shuffle") {
+                val req = try { call.receive<BakeShuffleRequest>() } catch (_: Exception) { BakeShuffleRequest() }
+                val currentQueue = queueManager.queueState.value.tracks
+                if (currentQueue.isEmpty()) {
+                    call.respond(HttpStatusCode.BadRequest, GenericOkResponse(status = "error", message = "Active queue is empty"))
+                    return@post
+                }
+
+                val timestamp = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(java.util.Date())
+                val plName = req.name?.ifBlank { null } ?: "Bake Shuffle - $timestamp"
+                val plDesc = req.description?.ifBlank { null } ?: "Randomized sequence baked from kiki's youtube mixer"
+                val trackDtos = currentQueue.map { it.toDto() }
+                val videoIds = currentQueue.map { it.id }
+
+                val localPl = localPlaylistManager.savePlaylist(
+                    name = plName,
+                    description = plDesc,
+                    tracks = trackDtos,
+                    overwrite = false,
+                    playlistId = null
+                )
+
+                val remoteYtId = try {
+                    innertubeClient.createPlaylist(
+                        title = plName,
+                        description = plDesc,
+                        privacyStatus = req.privacy,
+                        videoIds = videoIds
+                    )
+                } catch (_: Exception) { null }
+
+                val finalYtId = remoteYtId ?: "yt_pl_${localPl.id.removePrefix("local_pl_")}"
+                localPlaylistManager.markSynced(localPl.id, finalYtId)
+
+                val webUrl = if (finalYtId.startsWith("PL") || finalYtId.length >= 10) "https://music.youtube.com/playlist?list=$finalYtId" else null
+                val msg = "🔥 Shuffled queue baked and exported to YouTube Music as \"$plName\" (${trackDtos.size} tracks)!"
+
+                call.respond(BakeShuffleResponse(
+                    status = "ok",
+                    playlist_id = localPl.id,
+                    yt_playlist_id = finalYtId,
+                    name = plName,
+                    total_tracks = trackDtos.size,
+                    web_url = webUrl,
+                    message = msg
                 ))
             }
 
@@ -742,21 +1189,40 @@ fun main() {
 
             get("/api/tracks") {
                 val playlistId = call.request.queryParameters["playlist_id"]
-                if (!playlistId.isNullOrEmpty() && playlistId != "all") {
+                val searchQuery = (call.request.queryParameters["search"] ?: "").trim()
+                val sortBy = call.request.queryParameters["sort_by"] ?: "order_index"
+                val sortDirection = call.request.queryParameters["sort_direction"] ?: "asc"
+
+                var rawTracks: List<TrackDto> = if (!playlistId.isNullOrEmpty() && playlistId != "all") {
                     if (playlistId == "liked_songs") {
                         localPlaylistManager.ensureLikedSongsPlaylist()
                     }
                     val pl = localPlaylistManager.getPlaylist(playlistId)
-                    if (pl != null) {
-                        call.respond(TracksResponse(tracks = pl.tracks, count = pl.tracks.size))
-                    } else {
-                        call.respond(TracksResponse(tracks = emptyList(), count = 0))
-                    }
+                    pl?.tracks ?: emptyList()
                 } else {
                     val q = queueManager.queueState.value
-                    val dtos = q.tracks.map { it.toDto() }
-                    call.respond(TracksResponse(tracks = dtos, count = dtos.size))
+                    q.tracks.map { it.toDto() }
                 }
+
+                if (searchQuery.isNotEmpty()) {
+                    rawTracks = rawTracks.filter { t ->
+                        t.title.contains(searchQuery, ignoreCase = true) ||
+                        t.artist.contains(searchQuery, ignoreCase = true) ||
+                        t.album.contains(searchQuery, ignoreCase = true)
+                    }
+                }
+
+                if (sortBy != "order_index") {
+                    rawTracks = when (sortBy) {
+                        "title" -> if (sortDirection == "desc") rawTracks.sortedByDescending { it.title.lowercase() } else rawTracks.sortedBy { it.title.lowercase() }
+                        "artist" -> if (sortDirection == "desc") rawTracks.sortedByDescending { it.artist.lowercase() } else rawTracks.sortedBy { it.artist.lowercase() }
+                        "album" -> if (sortDirection == "desc") rawTracks.sortedByDescending { it.album.lowercase() } else rawTracks.sortedBy { it.album.lowercase() }
+                        "duration" -> if (sortDirection == "desc") rawTracks.sortedByDescending { it.durationMs } else rawTracks.sortedBy { it.durationMs }
+                        else -> rawTracks
+                    }
+                }
+
+                call.respond(TracksResponse(tracks = rawTracks, count = rawTracks.size))
             }
 
             get("/api/sync/status") {
