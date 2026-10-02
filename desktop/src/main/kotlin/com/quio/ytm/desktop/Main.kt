@@ -88,7 +88,7 @@ data class StatusResponse(
     val is_mac: Boolean = true,
     val has_synced_tracks: Boolean = true,
     val access_url: String = "http://localhost:8888",
-    val app: String = "YouTube Music Player Studio",
+    val app: String = "kiki's youtube mixer",
     val service: String = "YouTube Music",
     val user: UserDto = UserDto("YouTube Music Listener", "local_ytm_user")
 )
@@ -277,7 +277,7 @@ fun openAppWindow(url: String) {
 
 fun main() {
     val port = 8888
-    println("Starting YouTube Music Player Studio (Desktop) on http://localhost:$port...")
+    println("Starting kiki's youtube mixer (Desktop) on http://localhost:$port...")
 
     val desktopScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val queueRepository = InMemoryQueueRepository()

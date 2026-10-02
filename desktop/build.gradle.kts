@@ -49,19 +49,27 @@ tasks.register<Exec>("packageDmg") {
 
     val outputDir = layout.buildDirectory.dir("dist").get().asFile
     val inputDir = layout.buildDirectory.dir("install/desktop/lib").get().asFile
+    val iconFile = file("${project.rootDir}/figures/app_icon.icns")
 
     doFirst {
         outputDir.mkdirs()
     }
 
-    commandLine(
+    val argsList = mutableListOf(
         jpackageExec,
         "--type", "dmg",
-        "--name", "YouTubeMusicPlayer",
+        "--name", "kiki's youtube mixer",
         "--app-version", "1.0.0",
         "--input", inputDir.absolutePath,
         "--main-jar", "desktop.jar",
         "--main-class", "com.quio.ytm.desktop.MainKt",
         "--dest", outputDir.absolutePath
     )
+
+    if (iconFile.exists()) {
+        argsList.add("--icon")
+        argsList.add(iconFile.absolutePath)
+    }
+
+    commandLine(argsList)
 }

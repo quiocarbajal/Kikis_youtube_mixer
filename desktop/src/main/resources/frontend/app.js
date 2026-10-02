@@ -1,5 +1,5 @@
 /**
- * YouTube Music Player Studio - Client Application
+ * kiki's youtube mixer - Client Application
  */
 
 const state = {
@@ -286,7 +286,7 @@ const I18N = {
     syncStageSavingLiked: 'Saving Liked Songs to library...',
     syncStageFetchingPlaylists: 'Fetching your YouTube Music playlists...',
     syncStageDone: '✅ Library synced successfully!',
-    connectHeroTitle: "Welcome to YouTube Music Player Studio",
+    connectHeroTitle: "Welcome to kiki's youtube mixer",
     connectHeroDesc: 'Connect your YouTube Music account with 1 click to load your liked songs, browse your playlists, and use Shuffle.',
     connectHeroBtn: '🟢 1-Click Connect with YouTube Music',
     connectPromptPlaylists: 'Connect YouTube Music to load your playlists.',
@@ -565,7 +565,7 @@ const I18N = {
     syncStageSavingLiked: 'Guardando canciones en la biblioteca local...',
     syncStageFetchingPlaylists: 'Obteniendo tus playlists de YouTube Music...',
     syncStageDone: '✅ ¡Biblioteca sincronizada con éxito!',
-    connectHeroTitle: "Bienvenido a YouTube Music Player Studio",
+    connectHeroTitle: "Bienvenido a kiki's youtube mixer",
     connectHeroDesc: 'Conecta tu cuenta de YouTube Music con 1 clic para cargar tus canciones guardadas, explorar tus playlists y usar el modo Aleatorio.',
     connectHeroBtn: '🟢 Conectar con YouTube Music en 1 clic',
     connectPromptPlaylists: 'Conecta YouTube Music para cargar tus playlists.',
