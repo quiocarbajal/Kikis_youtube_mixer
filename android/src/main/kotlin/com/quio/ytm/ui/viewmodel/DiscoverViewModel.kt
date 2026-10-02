@@ -1,5 +1,6 @@
 package com.quio.ytm.ui.viewmodel
  
+import com.quio.ytm.core.discovery.ArtistUtils
 import com.quio.ytm.core.models.Track
 import com.quio.ytm.core.shuffle.ShuffleEngine
 import com.quio.ytm.domain.SearchUtils
@@ -734,6 +735,10 @@ class DiscoverViewModel(
                 localRecentIds + cloudRecentIds
             } else emptySet()
 
+            val blacklistedArtists = withContext(Dispatchers.IO) {
+                repository.getBlacklistedArtistNamesSync()
+            }
+
             fun isAllowedCandidate(track: TrackEntity): Boolean {
                 // Strictly enforce valid YouTube Music track format: must start with spotify:track: and have valid ID length
                 if (!track.uri.startsWith("spotify:track:") || track.id.length < 15) return false
@@ -747,6 +752,11 @@ class DiscoverViewModel(
 
                 // Strictly enforce Recently Heard Exclusion
                 if (recentTrackIds.contains(track.id)) return false
+
+                // Hard Prune: Permanent Artist Blacklist (Primary Artist rule: collaborations allowed)
+                if (blacklistedArtists.isNotEmpty() && ArtistUtils.isTrackBlockedByBlacklist(track.artist, blacklistedArtists)) {
+                    return false
+                }
 
                 // Hard Prune: EXCLUDED artists (- NO)
                 if (excludedArtists.isNotEmpty()) {
@@ -1119,6 +1129,33 @@ class DiscoverViewModel(
                     isGeneratingMix = false,
                     discoveredMix = shuffled,
                     infoBannerMessage = finalNotice
+                )
+            }
+        }
+    }
+
+    /**
+     * 1-Tap Block: Adds the track's primary artist to the persistent blacklist
+     * and purges all tracks where that artist is the main artist from the current discovery results.
+     */
+    fun blockArtistFromDiscover(track: TrackEntity) {
+        val mainArtist = ArtistUtils.extractPrimaryArtist(track.artist)
+        if (mainArtist.isBlank()) return
+        viewModelScope.launch {
+            repository.addArtistToBlacklist(mainArtist)
+            _uiState.update { current ->
+                val updatedMix = current.discoveredMix.filter { t ->
+                    val ma = ArtistUtils.extractPrimaryArtist(t.artist)
+                    !ma.equals(mainArtist, ignoreCase = true)
+                }
+                val updatedSearch = current.searchResults.filter { t ->
+                    val ma = ArtistUtils.extractPrimaryArtist(t.artist)
+                    !ma.equals(mainArtist, ignoreCase = true)
+                }
+                current.copy(
+                    discoveredMix = updatedMix,
+                    searchResults = updatedSearch,
+                    infoBannerMessage = "🚫 \"$mainArtist\" agregado a la lista negra"
                 )
             }
         }

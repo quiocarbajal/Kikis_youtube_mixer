@@ -70,4 +70,11 @@ object Strings {
     const val ColdStartBody = "Para la primera reproducción solamente, la pantalla cambiará a YouTube Music. Simplemente vuelve a Kiki's Mixer una vez que comience la música — todas las siguientes canciones y mezclas se reproducirán sin interrupciones aquí."
     const val ColdStartDoNotShow = "No volver a mostrar"
     const val ColdStartUnderstood = "Entendido"
+
+    // Blacklist
+    const val BlacklistTitle = "Lista Negra de Artistas"
+    const val BlacklistSubtitle = "Artistas bloqueados como autor principal en descubrimientos"
+    const val BlacklistEmpty = "No hay artistas en la lista negra"
+    const val BtnBlockArtist = "Bloquear Artista"
+    const val BtnUnblock = "Desbloquear"
 }

@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Folder
@@ -65,8 +66,10 @@ fun LibraryScreen(
     totalTrackCount: Int,
     likedSongsCount: Int,
     duplicateCount: Int,
+    blacklistedCount: Int = 0,
     onSyncLibrary: () -> Unit,
     onTriggerBackup: () -> Unit = {},
+    onOpenBlacklist: () -> Unit = {},
     onSelectPlaylistAsQueue: (PlaylistEntity) -> Unit,
     onAppendPlaylistToQueue: (PlaylistEntity) -> Unit,
     modifier: Modifier = Modifier
@@ -203,6 +206,16 @@ fun LibraryScreen(
                     title = "Respaldo de Seguridad (Vault)",
                     count = if (state.backupLikedCount > 0) state.backupLikedCount else likedSongsCount,
                     onClick = onTriggerBackup
+                )
+            }
+
+            item {
+                LibraryCategoryCard(
+                    icon = Icons.Default.Block,
+                    iconTint = YoutubeRed,
+                    title = Strings.BlacklistTitle,
+                    count = blacklistedCount,
+                    onClick = onOpenBlacklist
                 )
             }
 

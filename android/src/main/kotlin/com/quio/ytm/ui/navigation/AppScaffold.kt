@@ -85,6 +85,7 @@ fun AppScaffold(
     var selectedTab by remember { mutableIntStateOf(0) }
     var isSettingsOpen by remember { mutableStateOf(false) }
     var isSavePlaylistOpen by remember { mutableStateOf(false) }
+    var isBlacklistDialogOpen by remember { mutableStateOf(false) }
 
     val queueState by queueViewModel.uiState.collectAsState()
     val filteredTracks by queueViewModel.filteredTracks.collectAsState()
@@ -94,6 +95,8 @@ fun AppScaffold(
     val likedSongsCount by libraryViewModel.likedSongsCount.collectAsState()
     val likedTrackIds by libraryViewModel.likedTrackIds.collectAsState()
     val duplicateTracks by libraryViewModel.duplicateTracks.collectAsState()
+    val blacklistedArtists by libraryViewModel.blacklistedArtists.collectAsState()
+    val blacklistedCount by libraryViewModel.blacklistedCount.collectAsState()
     val playerState by playerViewModel.uiState.collectAsState()
     val discoverState by discoverViewModel.uiState.collectAsState()
     val showColdStartBanner by queueViewModel.showColdStartBanner.collectAsState()
@@ -145,7 +148,9 @@ fun AppScaffold(
 
     // Clean back navigation and exit handling
     BackHandler {
-        if (isSettingsOpen) {
+        if (isBlacklistDialogOpen) {
+            isBlacklistDialogOpen = false
+        } else if (isSettingsOpen) {
             isSettingsOpen = false
         } else if (playerState.isExpandedPlayerOpen) {
             playerViewModel.setExpandedPlayerOpen(false)
@@ -324,8 +329,10 @@ fun AppScaffold(
                     totalTrackCount = totalTrackCount,
                     likedSongsCount = likedSongsCount,
                     duplicateCount = duplicateTracks.size,
+                    blacklistedCount = blacklistedCount,
                     onSyncLibrary = { libraryViewModel.syncLibrary(onNeedAuth = onConnectYouTubeMusic) },
                     onTriggerBackup = { libraryViewModel.triggerManualBackup(onNeedAuth = onConnectYouTubeMusic) },
+                    onOpenBlacklist = { isBlacklistDialogOpen = true },
                     onSelectPlaylistAsQueue = { playlist ->
                         queueViewModel.loadPlaylistIntoQueue(playlist.id, playlist.name)
                         selectedTab = 0 // Auto-switch to Queue tab to see loaded tracks
@@ -391,7 +398,8 @@ fun AppScaffold(
                     onSelectCatalogOperator = { discoverViewModel.setCatalogOperator(it) },
                     onAddCatalogModifier = { term, mod -> discoverViewModel.addCatalogModifier(term, mod) },
                     onRemoveCatalogModifier = { discoverViewModel.removeCatalogModifier(it) },
-                    onDismissInfoBanner = { discoverViewModel.dismissInfoBanner() }
+                    onDismissInfoBanner = { discoverViewModel.dismissInfoBanner() },
+                    onBlockArtist = { discoverViewModel.blockArtistFromDiscover(it) }
                 )
             }
         }
@@ -467,6 +475,16 @@ fun AppScaffold(
             onDismiss = {
                 isSavePlaylistOpen = false
             }
+        )
+    }
+
+    // Artist Blacklist Dialog
+    if (isBlacklistDialogOpen) {
+        com.quio.ytm.ui.dialogs.BlacklistDialog(
+            blacklistedArtists = blacklistedArtists,
+            onAddArtist = { libraryViewModel.addArtistToBlacklist(it) },
+            onRemoveArtist = { libraryViewModel.removeArtistFromBlacklist(it) },
+            onDismiss = { isBlacklistDialogOpen = false }
         )
     }
 }

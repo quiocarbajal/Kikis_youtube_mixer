@@ -237,4 +237,122 @@ class InnertubeClient(
             setBody(payload)
         }.body()
     }
+
+    /**
+     * Fetches Automix / Radio tracks for a seed track using YouTube Music's RDAMVM radio playlist.
+     * Returns 25-50 recommended tracks by the seed artist and similar artists.
+     */
+    suspend fun getRadioTracks(videoId: String): List<Track> {
+        val radioPlaylistId = "RDAMVM$videoId"
+        val payload = buildJsonObject {
+            put("context", buildContext())
+            put("videoId", videoId)
+            put("playlistId", radioPlaylistId)
+        }
+
+        val jsonStr = client.post("https://music.youtube.com/youtubei/v1/next?alt=json") {
+            contentType(ContentType.Application.Json)
+            header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            if (cookieString.isNotEmpty()) {
+                header("Cookie", cookieString)
+            }
+            if (sapisid.isNotEmpty()) {
+                header("Authorization", InnertubeAuth.generateSapisidHashHeader(sapisid))
+                header("X-Origin", "https://music.youtube.com")
+            }
+            setBody(payload)
+        }.bodyAsText()
+
+        return parseRadioResponse(jsonStr)
+    }
+
+    private fun parseRadioResponse(jsonStr: String): List<Track> {
+        val results = mutableListOf<Track>()
+        try {
+            val root = JsonParser.parseString(jsonStr)
+            val renderers = mutableListOf<JsonObject>()
+            findRadioRenderers(root, renderers)
+
+            for (renderer in renderers) {
+                val track = parsePlaylistPanelRenderer(renderer)
+                if (track != null) {
+                    results.add(track)
+                }
+            }
+        } catch (e: Exception) {
+            System.err.println("Error parsing radio response: ${e.message}")
+        }
+        return results
+    }
+
+    private fun findRadioRenderers(element: JsonElement?, output: MutableList<JsonObject>) {
+        if (element == null || element.isJsonNull) return
+        if (element.isJsonObject) {
+            val obj = element.asJsonObject
+            if (obj.has("playlistPanelVideoRenderer")) {
+                output.add(obj.getAsJsonObject("playlistPanelVideoRenderer"))
+            }
+            for (entry in obj.entrySet()) {
+                findRadioRenderers(entry.value, output)
+            }
+        } else if (element.isJsonArray) {
+            for (item in element.asJsonArray) {
+                findRadioRenderers(item, output)
+            }
+        }
+    }
+
+    private fun parsePlaylistPanelRenderer(renderer: JsonObject): Track? {
+        try {
+            val videoId = renderer.get("videoId")?.asString ?: return null
+
+            // Title
+            val titleRuns = renderer.getAsJsonObject("title")?.getAsJsonArray("runs") ?: return null
+            val title = if (titleRuns.size() > 0) titleRuns.get(0).asJsonObject.get("text")?.asString ?: "" else ""
+            if (title.isEmpty()) return null
+
+            // Artist & Album from longBylineText or shortBylineText
+            var artist = "Unknown Artist"
+            var album = ""
+            val longRuns = renderer.getAsJsonObject("longBylineText")?.getAsJsonArray("runs")
+            if (longRuns != null && longRuns.size() > 0) {
+                artist = longRuns.get(0).asJsonObject.get("text")?.asString ?: "Unknown Artist"
+                if (longRuns.size() > 2) {
+                    album = longRuns.get(2).asJsonObject.get("text")?.asString ?: ""
+                }
+            } else {
+                val shortRuns = renderer.getAsJsonObject("shortBylineText")?.getAsJsonArray("runs")
+                if (shortRuns != null && shortRuns.size() > 0) {
+                    artist = shortRuns.get(0).asJsonObject.get("text")?.asString ?: "Unknown Artist"
+                }
+            }
+
+            // Duration
+            var durationMs = 0L
+            val lengthRuns = renderer.getAsJsonObject("lengthText")?.getAsJsonArray("runs")
+            if (lengthRuns != null && lengthRuns.size() > 0) {
+                val timeStr = lengthRuns.get(0).asJsonObject.get("text")?.asString ?: ""
+                durationMs = parseTimeString(timeStr)
+            }
+
+            // Thumbnail
+            var thumbUrl = ""
+            val thumbs = renderer.getAsJsonObject("thumbnail")?.getAsJsonArray("thumbnails")
+            if (thumbs != null && thumbs.size() > 0) {
+                thumbUrl = thumbs.get(thumbs.size() - 1).asJsonObject.get("url")?.asString ?: ""
+            }
+
+            return Track(
+                id = videoId,
+                title = title,
+                artist = artist,
+                album = album,
+                durationMs = durationMs,
+                thumbnailUrl = thumbUrl,
+                loudnessDb = -14.0
+            )
+        } catch (_: Exception) {
+            return null
+        }
+    }
 }

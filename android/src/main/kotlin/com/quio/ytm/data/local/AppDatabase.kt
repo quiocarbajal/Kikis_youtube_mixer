@@ -6,11 +6,13 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.quio.ytm.data.local.dao.ArtistBlacklistDao
 import com.quio.ytm.data.local.dao.PlaybackHistoryDao
 import com.quio.ytm.data.local.dao.PlaylistDao
 import com.quio.ytm.data.local.dao.PlaylistTrackDao
 import com.quio.ytm.data.local.dao.SettingDao
 import com.quio.ytm.data.local.dao.TrackDao
+import com.quio.ytm.data.local.entity.ArtistBlacklistEntity
 import com.quio.ytm.data.local.entity.PlaybackHistoryEntity
 import com.quio.ytm.data.local.entity.PlaylistEntity
 import com.quio.ytm.data.local.entity.PlaylistTrackCrossRef
@@ -23,9 +25,10 @@ import com.quio.ytm.data.local.entity.TrackEntity
         PlaylistEntity::class,
         PlaylistTrackCrossRef::class,
         SettingEntity::class,
-        PlaybackHistoryEntity::class
+        PlaybackHistoryEntity::class,
+        ArtistBlacklistEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -35,6 +38,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun playlistTrackDao(): PlaylistTrackDao
     abstract fun settingDao(): SettingDao
     abstract fun playbackHistoryDao(): PlaybackHistoryDao
+    abstract fun artistBlacklistDao(): ArtistBlacklistDao
 
     companion object {
         private const val DATABASE_NAME = "spotify_mixer.db"
@@ -48,6 +52,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS artist_blacklist (
+                        id TEXT PRIMARY KEY NOT NULL,
+                        name TEXT NOT NULL,
+                        external_id TEXT,
+                        created_at INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_artist_blacklist_name ON artist_blacklist(name)")
+            }
+        }
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -58,7 +76,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { instance = it }

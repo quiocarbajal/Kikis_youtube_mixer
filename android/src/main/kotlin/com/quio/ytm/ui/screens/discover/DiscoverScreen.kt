@@ -31,6 +31,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Favorite
@@ -123,6 +124,7 @@ fun DiscoverScreen(
     onAddCatalogModifier: (String, ChipModifier) -> Unit = { _, _ -> },
     onRemoveCatalogModifier: (ModifierChip) -> Unit = {},
     onDismissInfoBanner: () -> Unit = {},
+    onBlockArtist: (TrackEntity) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -211,7 +213,8 @@ fun DiscoverScreen(
                 onAddTrack = onAddTrackToQueue,
                 onLikeTrack = onLikeTrack,
                 likedTrackIds = likedTrackIds,
-                onDismissInfoBanner = onDismissInfoBanner
+                onDismissInfoBanner = onDismissInfoBanner,
+                onBlockArtist = onBlockArtist
             )
         } else {
             // Tab 1: Catalog Search
@@ -227,7 +230,8 @@ fun DiscoverScreen(
                 onAddTrack = onAddTrackToQueue,
                 onPlayTrack = onPlayTrack,
                 onLikeTrack = onLikeTrack,
-                likedTrackIds = likedTrackIds
+                likedTrackIds = likedTrackIds,
+                onBlockArtist = onBlockArtist
             )
         }
     }
@@ -247,7 +251,8 @@ fun CatalogSearchContent(
     onAddTrack: (TrackEntity) -> Unit,
     onPlayTrack: (TrackEntity) -> Unit = {},
     onLikeTrack: (TrackEntity) -> Unit = {},
-    likedTrackIds: Set<String> = emptySet()
+    likedTrackIds: Set<String> = emptySet(),
+    onBlockArtist: (TrackEntity) -> Unit = {}
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -478,7 +483,8 @@ fun CatalogSearchContent(
                         onPlay = { onPlayTrack(track) },
                         onAdd = { onAddTrack(track) },
                         onLike = { onLikeTrack(track) },
-                        isLiked = likedTrackIds.contains(track.id)
+                        isLiked = likedTrackIds.contains(track.id),
+                        onBlockArtist = { onBlockArtist(track) }
                     )
                 }
             }
@@ -515,7 +521,8 @@ fun SurpriseMeContent(
     onAddTrack: (TrackEntity) -> Unit,
     onLikeTrack: (TrackEntity) -> Unit = {},
     likedTrackIds: Set<String> = emptySet(),
-    onDismissInfoBanner: () -> Unit = {}
+    onDismissInfoBanner: () -> Unit = {},
+    onBlockArtist: (TrackEntity) -> Unit = {}
 ) {
     val decades = listOf("60s", "70s", "80s", "90s", "00s", "10s")
 
@@ -1327,7 +1334,8 @@ fun SurpriseMeContent(
                     onPlay = { onPlayTrack(track) },
                     onAdd = { onAddTrack(track) },
                     onLike = { onLikeTrack(track) },
-                    isLiked = likedTrackIds.contains(track.id)
+                    isLiked = likedTrackIds.contains(track.id),
+                    onBlockArtist = { onBlockArtist(track) }
                 )
             }
         }
@@ -1340,7 +1348,8 @@ fun DiscoveredTrackRow(
     onPlay: () -> Unit = {},
     onAdd: () -> Unit = {},
     onLike: () -> Unit = {},
-    isLiked: Boolean = false
+    isLiked: Boolean = false,
+    onBlockArtist: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
@@ -1393,7 +1402,7 @@ fun DiscoveredTrackRow(
                 )
             }
 
-            // Single Play Action + Heart Action + Add to Queue
+            // Single Play Action + Heart Action + Add to Queue + Block Artist
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onLike) {
                     Icon(
@@ -1417,6 +1426,14 @@ fun DiscoveredTrackRow(
                         contentDescription = Strings.BtnAddToQueue,
                         tint = TextSecondary,
                         modifier = Modifier.size(22.dp)
+                    )
+                }
+                IconButton(onClick = onBlockArtist) {
+                    Icon(
+                        imageVector = Icons.Default.Block,
+                        contentDescription = Strings.BtnBlockArtist,
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }

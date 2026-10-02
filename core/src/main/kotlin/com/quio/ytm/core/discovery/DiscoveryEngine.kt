@@ -14,6 +14,7 @@ class DiscoveryEngine(
     data class DiscoveryParams(
         val includedArtists: List<String> = emptyList(),
         val excludedArtists: List<String> = emptyList(),
+        val blacklistedArtists: List<String> = emptyList(),
         val includedGenres: List<String> = emptyList(),
         val excludedGenres: List<String> = emptyList(),
         val trackSeeds: List<String> = emptyList(),
@@ -35,8 +36,13 @@ class DiscoveryEngine(
         val filteredTracks = rawTracks.filter { track ->
             var keep = true
             
+            // Check Permanent Blacklist (Primary Artist rule)
+            if (params.blacklistedArtists.isNotEmpty() && ArtistUtils.isTrackBlockedByBlacklist(track.artist, params.blacklistedArtists)) {
+                keep = false
+            }
+
             // Check NOT constraints
-            if (params.excludedArtists.any { track.artist.contains(it, ignoreCase = true) }) {
+            if (keep && params.excludedArtists.any { track.artist.contains(it, ignoreCase = true) }) {
                 keep = false
             }
             

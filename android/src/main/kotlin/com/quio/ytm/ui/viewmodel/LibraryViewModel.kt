@@ -7,16 +7,12 @@ import com.quio.ytm.data.remote.YtmCloudService
 
 import com.quio.ytm.data.local.entity.TrackEntity
 import com.quio.ytm.data.local.entity.PlaylistEntity
+import com.quio.ytm.data.local.entity.ArtistBlacklistEntity
 
 import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-
-
-
-
-
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,6 +61,24 @@ class LibraryViewModel(
 
     val duplicateTracks: StateFlow<List<TrackEntity>> = repository.getDuplicateTracks()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val blacklistedArtists: StateFlow<List<ArtistBlacklistEntity>> = repository.blacklistedArtists
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val blacklistedCount: StateFlow<Int> = repository.blacklistedCount
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    fun addArtistToBlacklist(name: String) {
+        viewModelScope.launch {
+            repository.addArtistToBlacklist(name)
+        }
+    }
+
+    fun removeArtistFromBlacklist(name: String) {
+        viewModelScope.launch {
+            repository.removeArtistFromBlacklist(name)
+        }
+    }
 
     init {
         viewModelScope.launch {

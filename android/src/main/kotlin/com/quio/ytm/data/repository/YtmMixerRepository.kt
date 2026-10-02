@@ -1,6 +1,7 @@
 package com.quio.ytm.data.repository
 
 import com.quio.ytm.data.local.AppDatabase
+import com.quio.ytm.data.local.entity.ArtistBlacklistEntity
 import com.quio.ytm.data.local.entity.PlaylistEntity
 import com.quio.ytm.data.local.entity.TrackEntity
 import kotlinx.coroutines.Dispatchers
@@ -15,9 +16,41 @@ class YtmMixerRepository(private val db: AppDatabase) {
     private val playlistTrackDao = db.playlistTrackDao()
     private val settingDao = db.settingDao()
     private val playbackHistoryDao = db.playbackHistoryDao()
+    private val artistBlacklistDao = db.artistBlacklistDao()
 
     val likedTrackIds: Flow<Set<String>> =
         playlistTrackDao.getLikedTrackIdsFlow().map { it.toSet() }
+
+    val blacklistedArtists: Flow<List<ArtistBlacklistEntity>> =
+        artistBlacklistDao.getAllBlacklisted()
+
+    val blacklistedCount: Flow<Int> =
+        artistBlacklistDao.getBlacklistCount()
+
+    suspend fun getAllBlacklistedSync(): List<ArtistBlacklistEntity> = withContext(Dispatchers.IO) {
+        artistBlacklistDao.getAllBlacklistedSync()
+    }
+
+    suspend fun getBlacklistedArtistNamesSync(): Set<String> = withContext(Dispatchers.IO) {
+        artistBlacklistDao.getAllBlacklistedSync().map { it.name.trim() }.toSet()
+    }
+
+    suspend fun addArtistToBlacklist(name: String, externalId: String? = null) = withContext(Dispatchers.IO) {
+        val clean = name.trim()
+        if (clean.isNotBlank()) {
+            artistBlacklistDao.insert(
+                ArtistBlacklistEntity(
+                    id = java.util.UUID.randomUUID().toString(),
+                    name = clean,
+                    externalId = externalId
+                )
+            )
+        }
+    }
+
+    suspend fun removeArtistFromBlacklist(nameOrId: String) = withContext(Dispatchers.IO) {
+        artistBlacklistDao.delete(nameOrId)
+    }
 
     suspend fun isTrackInLiked(trackId: String): Boolean = withContext(Dispatchers.IO) {
         playlistTrackDao.isTrackInLiked(trackId)
