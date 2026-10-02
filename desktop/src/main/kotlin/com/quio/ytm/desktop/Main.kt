@@ -105,7 +105,8 @@ data class TrackDto(
     val durationMs: Long,
     val thumbnailUrl: String,
     val album_art_url: String,
-    val loudnessDb: Double
+    val loudnessDb: Double,
+    val year: String? = null
 )
 
 @Serializable
@@ -238,7 +239,8 @@ fun Track.toDto(): TrackDto = TrackDto(
     durationMs = durationMs,
     thumbnailUrl = thumbnailUrl,
     album_art_url = thumbnailUrl,
-    loudnessDb = loudnessDb
+    loudnessDb = loudnessDb,
+    year = year
 )
 
 fun openAppWindow(url: String) {
@@ -543,6 +545,50 @@ fun main() {
                     localPlaylistManager.removeTrack("liked_songs", req.track_id)
                 }
                 call.respond(GenericOkResponse(status = "ok"))
+            }
+
+            get("/api/tracks/resolve-decade") {
+                val artist = call.request.queryParameters["artist"] ?: ""
+                val title = call.request.queryParameters["title"] ?: ""
+                var decade: String? = null
+                var year: Int? = null
+
+                val yearRegex = Regex("""\b(19\d\d|20\d\d)\b""")
+                val quickMatch = yearRegex.find("$title $artist")?.value
+                if (quickMatch != null) {
+                    year = quickMatch.toIntOrNull()
+                } else if (title.isNotBlank() || artist.isNotBlank()) {
+                    try {
+                        val query = if (artist.isNotBlank() && title.isNotBlank()) "$title $artist" else "$title$artist"
+                        val results = innertubeClient.search(query, "track")
+                        val match = results.firstOrNull { 
+                            (title.isNotBlank() && it.title.contains(title, ignoreCase = true)) ||
+                            (artist.isNotBlank() && it.artist.contains(artist, ignoreCase = true))
+                        } ?: results.firstOrNull()
+
+                        if (match != null) {
+                            val foundYear = match.year ?: yearRegex.find("${match.album} ${match.title}")?.value
+                            if (foundYear != null) {
+                                year = foundYear.toIntOrNull()
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+
+                if (year != null) {
+                    decade = when (year) {
+                        in 1960..1969 -> "60s"
+                        in 1970..1979 -> "70s"
+                        in 1980..1989 -> "80s"
+                        in 1990..1999 -> "90s"
+                        in 2000..2009 -> "00s"
+                        in 2010..2019 -> "10s"
+                        in 2020..2029 -> "20s"
+                        else -> null
+                    }
+                }
+
+                call.respond(mapOf("decade" to decade, "year" to year?.toString()))
             }
 
             get("/api/playlists") {
@@ -936,6 +982,12 @@ fun main() {
                     }
 
                     for (trackChip in req.tracks.filter { it.modifier == "AND" && it.value.isNotBlank() }) {
+                        if (!trackChip.id.isNullOrBlank()) {
+                            try {
+                                val radioTracks = innertubeClient.getRadioTracks(trackChip.id)
+                                candidates.addAll(radioTracks)
+                            } catch (_: Exception) {}
+                        }
                         val tracks = innertubeClient.search(trackChip.value, "track")
                         candidates.addAll(tracks)
                         val topTrack = tracks.firstOrNull()
@@ -998,7 +1050,10 @@ fun main() {
                     }
 
                     // C. Excluded Tracks (modifier == "NOT")
-                    val notTracks = req.tracks.filter { it.modifier == "NOT" && it.value.isNotBlank() }.map { it.value.trim().lowercase() }
+                    val notTracks = req.tracks.filter { it.modifier == "NOT" && it.value.isNotBlank() }.map { 
+                        val raw = it.value.trim().lowercase()
+                        if (raw.contains(" - ")) raw.substringBefore(" - ").trim() else raw
+                    }
                     if (notTracks.isNotEmpty()) {
                         pool = pool.filterNot { track ->
                             val tTitle = track.title.lowercase()

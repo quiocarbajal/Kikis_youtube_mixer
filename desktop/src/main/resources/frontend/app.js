@@ -51,6 +51,7 @@ const state = {
     avoidConsecutiveArtists: true,
     artistMod: 'AND',
     genreMod: 'AND',
+    decadeMod: 'AND',
     trackMod: 'AND',
     selectedGenreCategory: 'Popular',
     discoveredTracks: [],
@@ -158,6 +159,7 @@ const DOM = {
   // Discovery Studio DOM
   discoveryPanelHeading: document.getElementById('discovery-panel-heading'),
   discoveryHelpBtn: document.getElementById('discovery-help-btn'),
+  discDropArtist: document.getElementById('disc-drop-artist'),
   discArtistModBtn: document.getElementById('disc-artist-mod-btn'),
   discoveryArtistInput: document.getElementById('discovery-artist-input'),
   discoveryArtistSuggestions: document.getElementById('discovery-artist-suggestions'),
@@ -172,8 +174,11 @@ const DOM = {
   genreCatPills: document.querySelectorAll('.genre-cat-pill'),
   discoveryGenreChips: document.getElementById('discovery-genre-chips'),
   
+  discDropDecade: document.getElementById('disc-drop-decade'),
+  discDecadeModBtn: document.getElementById('disc-decade-mod-btn'),
   discoveryDecadePills: document.getElementById('discovery-decade-pills'),
   
+  discDropTrack: document.getElementById('disc-drop-track'),
   discTrackModBtn: document.getElementById('disc-track-mod-btn'),
   discoveryTrackInput: document.getElementById('discovery-track-input'),
   discoveryTrackSuggestions: document.getElementById('discovery-track-suggestions'),
@@ -512,6 +517,8 @@ const I18N = {
     tipGenreMod: 'Toggle between [+ AND] (include genre) and [- NOT] (exclude genre).',
     tipTrackModTitle: 'Song Seed Modifier',
     tipTrackMod: 'Toggle between [+ AND] (similar to song) and [- NOT] (dissimilar).',
+    tipDecadeModTitle: 'Decade Modifier',
+    tipDecadeMod: 'Toggle between [+ AND] (include decade) and [- NOT] (exclude decade).',
     tipTriStateGenreTitle: '3-State Genre Pills',
     tipTriStateGenre: 'Click once for [+ AND] (Include), click again for [- NOT] (Exclude), click third time for Off.',
     tipTriStateDecadeTitle: '3-State Decade Pills',
@@ -789,6 +796,8 @@ const I18N = {
     tipGenreMod: 'Alterna entre [+ Y] (incluir género) y [- NO] (excluir género).',
     tipTrackModTitle: 'Modificador de Canción Semilla',
     tipTrackMod: 'Alterna entre [+ Y] (similar a la canción) y [- NO] (disimilar).',
+    tipDecadeModTitle: 'Modificador de Década',
+    tipDecadeMod: 'Alterna entre [+ Y] (incluir década) y [- NO] (excluir década).',
     tipTriStateGenreTitle: 'Botones de Género de 3 Estados',
     tipTriStateGenre: 'Haz clic una vez para [+ Y] (Incluir), otra vez para [- NO] (Excluir), y una tercera para Apagar.',
     tipTriStateDecadeTitle: 'Botones de Década de 3 Estados',
@@ -1118,6 +1127,10 @@ function applyLanguage(lang) {
   if (DOM.discGenreModBtn) {
     DOM.discGenreModBtn.setAttribute('data-tooltip-title', t('tipGenreModTitle'));
     DOM.discGenreModBtn.setAttribute('data-tooltip', t('tipGenreMod'));
+  }
+  if (DOM.discDecadeModBtn) {
+    DOM.discDecadeModBtn.setAttribute('data-tooltip-title', t('tipDecadeModTitle'));
+    DOM.discDecadeModBtn.setAttribute('data-tooltip', t('tipDecadeMod'));
   }
   if (DOM.discTrackModBtn) {
     DOM.discTrackModBtn.setAttribute('data-tooltip-title', t('tipTrackModTitle'));
@@ -3486,6 +3499,7 @@ function initDiscoveryPanel() {
 
   setupModToggle(DOM.discArtistModBtn, 'artistMod');
   setupModToggle(DOM.discGenreModBtn, 'genreMod');
+  setupModToggle(DOM.discDecadeModBtn, 'decadeMod');
   setupModToggle(DOM.discTrackModBtn, 'trackMod');
 
   // 2. Typeahead Inputs Setup
@@ -3663,6 +3677,250 @@ function initDiscoveryPanel() {
   DOM.discAppendQueueBtn?.addEventListener('click', () => appendDiscoveryToMainQueue(false));
   DOM.discAppendSelectedBtn?.addEventListener('click', () => appendDiscoveryToMainQueue(true));
   DOM.discSelectAllBtn?.addEventListener('click', toggleSelectAllDiscovery);
+
+  // 11. Drag & Drop Seeds (Artists, Decades, Songs)
+  initDiscoveryDropZones();
+}
+
+// --- Discovery Drag & Drop Ingestion Helpers ---
+function getDraggedTracksFromEvent(e) {
+  let tracks = null;
+  try {
+    const raw = e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.tracks) && parsed.tracks.length > 0) {
+        tracks = parsed.tracks;
+      } else if (Array.isArray(parsed) && parsed.length > 0) {
+        tracks = parsed;
+      }
+    }
+  } catch (err) {}
+
+  if (!tracks && window.__draggedTracksFromRight && window.__draggedTracksFromRight.length > 0) {
+    tracks = [...window.__draggedTracksFromRight];
+  }
+  if (!tracks && Array.isArray(draggedTrackData) && draggedTrackData.length > 0) {
+    tracks = [...draggedTrackData];
+  }
+  if (!tracks && draggedTrackData && Array.isArray(draggedTrackData.tracks) && draggedTrackData.tracks.length > 0) {
+    tracks = [...draggedTrackData.tracks];
+  }
+
+  setTimeout(() => {
+    window.__draggedTracksFromRight = null;
+    draggedTrackData = null;
+  }, 50);
+
+  return tracks || [];
+}
+
+function setupFieldDropZone(zoneEl, onDropTracks) {
+  if (!zoneEl) return;
+
+  let dragCounter = 0;
+
+  zoneEl.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragCounter++;
+    zoneEl.classList.add('drop-target-active');
+  });
+
+  zoneEl.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (!zoneEl.classList.contains('drop-target-active')) {
+      zoneEl.classList.add('drop-target-active');
+    }
+  });
+
+  zoneEl.addEventListener('dragleave', () => {
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      zoneEl.classList.remove('drop-target-active');
+    }
+  });
+
+  zoneEl.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter = 0;
+    zoneEl.classList.remove('drop-target-active');
+
+    const tracks = getDraggedTracksFromEvent(e);
+    if (!tracks || tracks.length === 0) return;
+
+    await onDropTracks(tracks, e);
+  });
+}
+
+function handleDropTracksOntoArtist(tracks) {
+  const mod = state.discovery.artistMod || 'AND';
+  let addedCount = 0;
+  tracks.forEach(track => {
+    const artist = (track.primary_artist || track.artist || '').trim();
+    if (artist) {
+      addDiscoveryChip('artists', artist, null, mod);
+      addedCount++;
+    }
+  });
+  if (addedCount > 0) {
+    const isEs = state.currentLang === 'es';
+    showToast(isEs 
+      ? `🎤 ${addedCount} artista${addedCount === 1 ? '' : 's'} agregado${addedCount === 1 ? '' : 's'} como [${mod === 'AND' ? '+ Y' : '- NO'}]`
+      : `🎤 Added ${addedCount} artist${addedCount === 1 ? '' : 's'} as [${mod === 'AND' ? '+ AND' : '- NOT'}]`);
+  }
+}
+
+function handleDropTracksOntoSong(tracks) {
+  const mod = state.discovery.trackMod || 'AND';
+  let addedCount = 0;
+  tracks.forEach(track => {
+    const title = (track.title || '').trim();
+    if (title) {
+      addDiscoveryChip('tracks', title, track.id || null, mod);
+      addedCount++;
+    }
+  });
+  if (addedCount > 0) {
+    const isEs = state.currentLang === 'es';
+    showToast(isEs 
+      ? `🎵 ${addedCount} canción${addedCount === 1 ? '' : 'es'} agregada${addedCount === 1 ? '' : 's'} como [${mod === 'AND' ? '+ Y' : '- NO'}]`
+      : `🎵 Added ${addedCount} song${addedCount === 1 ? '' : 's'} as [${mod === 'AND' ? '+ AND' : '- NOT'}]`);
+  }
+}
+
+function yearToDecade(year) {
+  const y = parseInt(year, 10);
+  if (isNaN(y)) return null;
+  if (y >= 1960 && y <= 1969) return '60s';
+  if (y >= 1970 && y <= 1979) return '70s';
+  if (y >= 1980 && y <= 1989) return '80s';
+  if (y >= 1990 && y <= 1999) return '90s';
+  if (y >= 2000 && y <= 2009) return '00s';
+  if (y >= 2010 && y <= 2019) return '10s';
+  if (y >= 2020 && y <= 2029) return '20s';
+  return null;
+}
+
+async function resolveTrackDecade(track) {
+  if (!track) return null;
+  // 1. Direct year on track
+  if (track.year) {
+    const d = yearToDecade(track.year);
+    if (d) return d;
+  }
+  // 2. Year embedded in title or album
+  const text = `${track.album || ''} ${track.title || ''}`;
+  const match = text.match(/\b(19\d\d|20\d\d)\b/);
+  if (match) {
+    const d = yearToDecade(match[1]);
+    if (d) return d;
+  }
+  // 3. Fallback: query backend resolution endpoint
+  try {
+    const artist = encodeURIComponent(track.artist || track.primary_artist || '');
+    const title = encodeURIComponent(track.title || '');
+    const res = await api(`/api/tracks/resolve-decade?artist=${artist}&title=${title}`);
+    if (res && res.decade) {
+      return res.decade;
+    }
+  } catch (err) {
+    console.warn('Failed to resolve decade for track:', track, err);
+  }
+  return null;
+}
+
+function setDecadeModifier(decadeVal, modifier) {
+  if (!decadeVal) return;
+  const list = state.discovery.decades;
+  const existingIdx = list.findIndex(item => item.value.toLowerCase() === decadeVal.toLowerCase());
+  if (existingIdx >= 0) {
+    list[existingIdx].modifier = modifier;
+  } else {
+    list.push({ value: decadeVal, id: null, modifier: modifier });
+  }
+  syncDecadePillsUI();
+}
+
+async function handleDropTracksOntoDecade(tracks, explicitDecade = null) {
+  const mod = state.discovery.decadeMod || 'AND';
+  if (explicitDecade) {
+    setDecadeModifier(explicitDecade, mod);
+    const isEs = state.currentLang === 'es';
+    showToast(isEs 
+      ? `📅 Década ${explicitDecade.toUpperCase()} establecida como [${mod === 'AND' ? '+ Y' : '- NO'}]`
+      : `📅 Set decade ${explicitDecade.toUpperCase()} as [${mod === 'AND' ? '+ AND' : '- NOT'}]`);
+    return;
+  }
+
+  const resolved = await Promise.all(tracks.map(t => resolveTrackDecade(t)));
+  const resolvedDecades = new Set(resolved.filter(Boolean));
+
+  if (resolvedDecades.size > 0) {
+    resolvedDecades.forEach(dec => {
+      setDecadeModifier(dec, mod);
+    });
+    const decList = Array.from(resolvedDecades).map(d => d.toUpperCase()).join(', ');
+    const isEs = state.currentLang === 'es';
+    showToast(isEs 
+      ? `📅 Décadas detectadas: ${decList} agregadas como [${mod === 'AND' ? '+ Y' : '- NO'}]`
+      : `📅 Detected decades: ${decList} added as [${mod === 'AND' ? '+ AND' : '- NOT'}]`);
+  } else {
+    const isEs = state.currentLang === 'es';
+    showToast(isEs ? '⚠️ No se pudo determinar la década de las canciones' : '⚠️ Could not determine decade for dropped tracks', 'error');
+  }
+}
+
+function initDiscoveryDropZones() {
+  // 1. Auto-switch to Surprise Me tab on dragover
+  DOM.tabRightDiscovery?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    if (state.rightTab !== 'discovery') {
+      DOM.tabRightDiscovery.click();
+    }
+  });
+
+  // 2. Drop zone: Artists (Section 1)
+  setupFieldDropZone(DOM.discDropArtist, async (tracks) => {
+    handleDropTracksOntoArtist(tracks);
+  });
+
+  // 3. Drop zone: Song Seed (Section 4)
+  setupFieldDropZone(DOM.discDropTrack, async (tracks) => {
+    handleDropTracksOntoSong(tracks);
+  });
+
+  // 4. Drop zone: Decades (Section 3)
+  setupFieldDropZone(DOM.discDropDecade, async (tracks, event) => {
+    const pill = event.target.closest('.tri-state-pill');
+    const explicitDecade = pill ? pill.dataset.decade : null;
+    await handleDropTracksOntoDecade(tracks, explicitDecade);
+  });
+
+  // 5. Individual decade pill dragover & visual highlight
+  const decadePills = DOM.discoveryDecadePills?.querySelectorAll('.tri-state-pill') || [];
+  decadePills.forEach(pill => {
+    pill.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'copy';
+      pill.classList.add('drop-target-active');
+    });
+    pill.addEventListener('dragleave', () => {
+      pill.classList.remove('drop-target-active');
+    });
+    pill.addEventListener('drop', () => {
+      pill.classList.remove('drop-target-active');
+    });
+  });
+
+  // Prevent default paste of drag payload into text inputs
+  [DOM.discoveryArtistInput, DOM.discoveryTrackInput, DOM.discoveryGenreInput].forEach(inp => {
+    if (!inp) return;
+    inp.addEventListener('dragover', (e) => e.preventDefault());
+  });
 }
 
 // --- Typeahead Auto-Suggest Helper ---

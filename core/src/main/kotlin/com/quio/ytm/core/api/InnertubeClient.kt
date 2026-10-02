@@ -148,6 +148,16 @@ class InnertubeClient(
             }
             if (title.isEmpty()) return null
 
+            // Extract Thumbnail
+            var thumbUrl = ""
+            val thumbs = renderer.getAsJsonObject("thumbnail")
+                ?.getAsJsonObject("musicThumbnailRenderer")
+                ?.getAsJsonObject("thumbnail")
+                ?.getAsJsonArray("thumbnails")
+            if (thumbs != null && thumbs.size() > 0) {
+                thumbUrl = thumbs.get(thumbs.size() - 1).asJsonObject.get("url")?.asString ?: ""
+            }
+
             if (flexCols.size() > 1) {
                 val col1Runs = flexCols.get(1).asJsonObject
                     .getAsJsonObject("musicResponsiveListItemFlexColumnRenderer")
@@ -172,6 +182,7 @@ class InnertubeClient(
                     }
 
                     val timeRegex = Regex("""^\d+:\d+(:\d+)?$""")
+                    val yearRegex = Regex("""\b(19\d\d|20\d\d)\b""")
                     if (sections.isNotEmpty()) {
                         artist = sections[0]
                     }
@@ -181,18 +192,25 @@ class InnertubeClient(
                     if (sections.size > 1 && timeRegex.matches(sections.last())) {
                         durationMs = parseTimeString(sections.last())
                     }
+                    val foundYear = sections.firstOrNull { yearRegex.matches(it.trim()) }?.trim()
+                        ?: yearRegex.find(album)?.value
+                        ?: yearRegex.find(title)?.value
+
+                    return Track(
+                        id = videoId,
+                        title = title,
+                        artist = artist,
+                        album = album,
+                        durationMs = durationMs,
+                        thumbnailUrl = thumbUrl,
+                        loudnessDb = -14.0,
+                        year = foundYear
+                    )
                 }
             }
 
-            // Extract Thumbnail
-            var thumbUrl = ""
-            val thumbs = renderer.getAsJsonObject("thumbnail")
-                ?.getAsJsonObject("musicThumbnailRenderer")
-                ?.getAsJsonObject("thumbnail")
-                ?.getAsJsonArray("thumbnails")
-            if (thumbs != null && thumbs.size() > 0) {
-                thumbUrl = thumbs.get(thumbs.size() - 1).asJsonObject.get("url")?.asString ?: ""
-            }
+            val yearRegex = Regex("""\b(19\d\d|20\d\d)\b""")
+            val fallbackYear = yearRegex.find(album)?.value ?: yearRegex.find(title)?.value
 
             return Track(
                 id = videoId,
@@ -201,7 +219,8 @@ class InnertubeClient(
                 album = album,
                 durationMs = durationMs,
                 thumbnailUrl = thumbUrl,
-                loudnessDb = -14.0
+                loudnessDb = -14.0,
+                year = fallbackYear
             )
         } catch (_: Exception) {
             return null
@@ -342,6 +361,9 @@ class InnertubeClient(
                 thumbUrl = thumbs.get(thumbs.size() - 1).asJsonObject.get("url")?.asString ?: ""
             }
 
+            val yearRegex = Regex("""\b(19\d\d|20\d\d)\b""")
+            val foundYear = yearRegex.find(album)?.value ?: yearRegex.find(title)?.value
+
             return Track(
                 id = videoId,
                 title = title,
@@ -349,7 +371,8 @@ class InnertubeClient(
                 album = album,
                 durationMs = durationMs,
                 thumbnailUrl = thumbUrl,
-                loudnessDb = -14.0
+                loudnessDb = -14.0,
+                year = foundYear
             )
         } catch (_: Exception) {
             return null

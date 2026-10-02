@@ -317,7 +317,7 @@
           </div>
 
           <!-- Section 1: Artists (AND / NOT) -->
-          <div class="discovery-field-group">
+          <div class="discovery-field-group" id="disc-drop-artist" data-tooltip-title="Drag & Drop Artists" data-tooltip="Drag any song here from the queue or search to automatically add its artist as [+ AND] or [- NOT].">
             <div class="discovery-field-label-row">
               <span class="discovery-field-label">🎤 Artists (AND / NOT):</span>
             </div>
@@ -365,9 +365,12 @@
           </div>
 
           <!-- Section 3: Decades (AND / NOT) -->
-          <div class="discovery-field-group">
+          <div class="discovery-field-group" id="disc-drop-decade" data-tooltip-title="Drag & Drop Decades" data-tooltip="Drag any song here to detect and set its decade, or drop directly onto a decade button.">
             <div class="discovery-field-label-row">
               <span class="discovery-field-label">📅 Decades (AND / NOT):</span>
+            </div>
+            <div class="discovery-input-row" style="margin-bottom: 6px;">
+              <button type="button" id="disc-decade-mod-btn" class="mod-toggle-btn mod-and" data-tooltip-title="Modifier Toggle" data-tooltip="Toggle between [+ AND] (include decade) and [- NOT] (exclude decade).">[+ AND]</button>
             </div>
             <div id="discovery-decade-pills" class="decade-pills-grid" data-tooltip-title="3-State Decade Pills" data-tooltip="Click once for [+ AND] (Include), click again for [- NOT] (Exclude), click again for Off.">
               <button type="button" class="tri-state-pill" data-decade="60s">60s</button>
@@ -382,7 +385,7 @@
           </div>
 
           <!-- Section 4: Song Seed & Active Vibe -->
-          <div class="discovery-field-group">
+          <div class="discovery-field-group" id="disc-drop-track" data-tooltip-title="Drag & Drop Songs" data-tooltip="Drag any song here to add it as a recommendation seed as [+ AND] or [- NOT].">
             <div class="discovery-field-label-row">
               <span class="discovery-field-label">🎵 Song Seed & Queue Vibe:</span>
             </div>

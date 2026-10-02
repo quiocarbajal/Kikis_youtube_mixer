@@ -1961,6 +1961,18 @@ body.is-col-resizing * {
   outline-offset: -4px;
 }
 
+.discovery-field-group.drop-target-active {
+  outline: 2px dashed var(--ytm-red) !important;
+  outline-offset: 3px !important;
+  background-color: rgba(216, 34, 34, 0.09) !important;
+  border-radius: 6px;
+}
+
+.tri-state-pill.drop-target-active {
+  outline: 2px solid var(--ytm-red) !important;
+  transform: scale(1.08);
+}
+
 #blacklist-table {
   width: 100%;
   border-collapse: collapse;
