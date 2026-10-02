@@ -86,6 +86,24 @@ data class AddTrackToPlaylistRequest(
 )
 
 @Serializable
+data class ReorderPlaylistRequest(
+    val playlist_id: String = "",
+    val track_ids: List<String> = emptyList()
+)
+
+@Serializable
+data class RemoveTrackFromPlaylistRequest(
+    val track_id: String = ""
+)
+
+@Serializable
+data class LikeTrackRequest(
+    val track_id: String,
+    val liked: Boolean,
+    val track: TrackDto? = null
+)
+
+@Serializable
 data class SyncCheckResponse(
     val status: String = "ok",
     val playlist_id: String,
@@ -129,9 +147,28 @@ class LocalPlaylistManager(
     }
 
     @Synchronized
+    fun ensureLikedSongsPlaylist(): LocalPlaylist {
+        val existing = playlists.find { it.id == "liked_songs" }
+        if (existing != null) return existing
+        val liked = LocalPlaylist(
+            id = "liked_songs",
+            name = "Liked Songs",
+            description = "Your favorite and liked songs",
+            total_tracks = 0,
+            is_local = true,
+            yt_playlist_id = "LM",
+            tracks = emptyList()
+        )
+        playlists.add(0, liked)
+        saveToDisk()
+        return liked
+    }
+
+    @Synchronized
     private fun loadFromDisk() {
         if (!storageFile.exists()) {
             playlists.clear()
+            ensureLikedSongsPlaylist()
             return
         }
         try {
@@ -144,6 +181,7 @@ class LocalPlaylistManager(
         } catch (e: Exception) {
             System.err.println("Error reading local_playlists.json: ${e.message}")
         }
+        ensureLikedSongsPlaylist()
     }
 
     @Synchronized
@@ -154,6 +192,11 @@ class LocalPlaylistManager(
         } catch (e: Exception) {
             System.err.println("Error saving local_playlists.json: ${e.message}")
         }
+    }
+
+    @Synchronized
+    fun getAll(): List<LocalPlaylist> {
+        return playlists.toList()
     }
 
     @Synchronized
@@ -238,6 +281,39 @@ class LocalPlaylistManager(
         playlists[idx] = current.copy(
             tracks = updatedTracks,
             total_tracks = updatedTracks.size,
+            last_modified_locally = System.currentTimeMillis()
+        )
+        saveToDisk()
+        return true
+    }
+
+    @Synchronized
+    fun removeTrack(playlistId: String, trackId: String): Boolean {
+        val idx = playlists.indexOfFirst { it.id == playlistId }
+        if (idx == -1) return false
+        val current = playlists[idx]
+        val updatedTracks = current.tracks.filter { it.id != trackId }
+        playlists[idx] = current.copy(
+            tracks = updatedTracks,
+            total_tracks = updatedTracks.size,
+            last_modified_locally = System.currentTimeMillis()
+        )
+        saveToDisk()
+        return true
+    }
+
+    @Synchronized
+    fun reorderTracks(id: String, trackIds: List<String>): Boolean {
+        val idx = playlists.indexOfFirst { it.id == id }
+        if (idx == -1) return false
+        val current = playlists[idx]
+        val trackMap = current.tracks.associateBy { it.id }
+        val reordered = trackIds.mapNotNull { trackMap[it] }
+        val missing = current.tracks.filter { !trackIds.contains(it.id) }
+        val finalTracks = reordered + missing
+        playlists[idx] = current.copy(
+            tracks = finalTracks,
+            total_tracks = finalTracks.size,
             last_modified_locally = System.currentTimeMillis()
         )
         saveToDisk()

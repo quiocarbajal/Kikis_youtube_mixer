@@ -44,4 +44,4 @@ session.json
 __pycache__/
 .venv/
 local_playlists.json
-
+blacklist.json

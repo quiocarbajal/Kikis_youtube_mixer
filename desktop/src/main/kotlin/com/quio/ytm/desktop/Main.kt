@@ -1,10 +1,14 @@
 package com.quio.ytm.desktop
 
 import com.quio.ytm.core.api.InnertubeClient
+import com.quio.ytm.core.discovery.ArtistUtils
 import com.quio.ytm.core.models.ActiveQueue
 import com.quio.ytm.core.models.Track
 import com.quio.ytm.core.shuffle.ShuffleEngine
 import com.quio.ytm.core.state.ActiveQueueManager
+import com.quio.ytm.domain.GenreCatalog
+import com.quio.ytm.domain.GenreItem
+import com.quio.ytm.domain.SearchUtils
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -95,6 +99,7 @@ data class TrackDto(
     val uri: String,
     val title: String,
     val artist: String,
+    val primary_artist: String = "",
     val album: String,
     val duration_ms: Long,
     val durationMs: Long,
@@ -138,11 +143,95 @@ data class GenericOkResponse(
     val volume_percent: Int? = null
 )
 
+@Serializable
+data class SuggestionDto(
+    val id: String? = null,
+    val name: String = "",
+    val title: String? = null,
+    val artist: String? = null,
+    val album: String? = null,
+    val image_url: String? = null,
+    val album_art_url: String? = null,
+    val subtitle: String? = null,
+    val type: String = "artist"
+)
+
+@Serializable
+data class SuggestResponse(
+    val suggestions: List<SuggestionDto> = emptyList()
+)
+
+@Serializable
+data class GenreItemDto(
+    val id: String,
+    val name: String,
+    val category: String
+)
+
+@Serializable
+data class GenresResponse(
+    val genres: List<GenreItemDto> = emptyList()
+)
+
+@Serializable
+data class DecadeItemDto(
+    val id: String,
+    val name: String
+)
+
+@Serializable
+data class DecadesResponse(
+    val decades: List<DecadeItemDto> = emptyList()
+)
+
+@Serializable
+data class ActiveVibeResponse(
+    val artists: List<String> = emptyList(),
+    val tracks: List<TrackDto> = emptyList()
+)
+
+@Serializable
+data class DiscoveryChipDto(
+    val value: String = "",
+    val id: String? = null,
+    val modifier: String = "AND"
+)
+
+@Serializable
+data class DiscoveryGenerateRequest(
+    val artists: List<DiscoveryChipDto> = emptyList(),
+    val tracks: List<DiscoveryChipDto> = emptyList(),
+    val genres: List<DiscoveryChipDto> = emptyList(),
+    val decades: List<DiscoveryChipDto> = emptyList(),
+    val keywords: List<DiscoveryChipDto> = emptyList(),
+    val use_active_vibe: Boolean = false,
+    val active_playlist_id: String? = null,
+    val not_liked_songs: Boolean = false,
+    val not_in_playlists: Boolean = false,
+    val not_recently_played_days: Int? = null,
+    val not_live: Boolean = false,
+    val not_remix: Boolean = false,
+    val only_live: Boolean = false,
+    val only_remix: Boolean = false,
+    val low_popularity_only: Boolean = false,
+    val hidden_gem_target: String = "artist",
+    val target_count: Int = 25,
+    val true_shuffle: Boolean = false,
+    val avoid_consecutive_artists: Boolean = true
+)
+
+@Serializable
+data class DiscoveryResponse(
+    val tracks: List<TrackDto> = emptyList(),
+    val count: Int = 0
+)
+
 fun Track.toDto(): TrackDto = TrackDto(
     id = id,
     uri = "yt:track:$id",
     title = title,
     artist = artist,
+    primary_artist = ArtistUtils.extractPrimaryArtist(artist),
     album = album,
     duration_ms = durationMs,
     durationMs = durationMs,
@@ -192,6 +281,7 @@ fun main() {
     val queueManager = ActiveQueueManager(queueRepository, desktopScope)
     val innertubeClient = InnertubeClient()
     val localPlaylistManager = LocalPlaylistManager()
+    val localBlacklistManager = LocalBlacklistManager()
 
     var currentPlayerState = PlayerStateDto()
 
@@ -250,6 +340,14 @@ fun main() {
                                 try {
                                     val quotedTracks = innertubeClient.search("\"$query\"", "track")
                                     tracks = (quotedTracks + tracks).distinctBy { it.id }
+                                } catch (_: Exception) {}
+                            }
+                        } else if (type == "artist") {
+                            val hasArtistMatch = tracks.any { it.artist.contains(query, ignoreCase = true) }
+                            if (!hasArtistMatch) {
+                                try {
+                                    val moreTracks = innertubeClient.search("$query songs", "track")
+                                    tracks = (tracks + moreTracks).distinctBy { it.id }
                                 } catch (_: Exception) {}
                             }
                         }
@@ -423,7 +521,27 @@ fun main() {
             }
 
             get("/api/tracks/liked-ids") {
-                call.respond(emptyList<String>())
+                val likedPl = localPlaylistManager.ensureLikedSongsPlaylist()
+                val ids = likedPl.tracks.map { it.id }
+                call.respond(ids)
+            }
+
+            post("/api/tracks/like") {
+                val req = call.receive<LikeTrackRequest>()
+                localPlaylistManager.ensureLikedSongsPlaylist()
+                if (req.liked) {
+                    var trackDto = req.track
+                    if (trackDto == null && req.track_id.isNotEmpty()) {
+                        val qTrack = queueManager.queueState.value.tracks.find { it.id == req.track_id }
+                        if (qTrack != null) trackDto = qTrack.toDto()
+                    }
+                    if (trackDto != null) {
+                        localPlaylistManager.addTrack("liked_songs", trackDto)
+                    }
+                } else {
+                    localPlaylistManager.removeTrack("liked_songs", req.track_id)
+                }
+                call.respond(GenericOkResponse(status = "ok"))
             }
 
             get("/api/playlists") {
@@ -548,9 +666,39 @@ fun main() {
                 call.respond(GenericOkResponse(status = "ok"))
             }
 
+            post("/api/playlists/reorder") {
+                val req = call.receive<ReorderPlaylistRequest>()
+                if (req.playlist_id == "liked_songs") {
+                    localPlaylistManager.ensureLikedSongsPlaylist()
+                }
+                val success = localPlaylistManager.reorderTracks(req.playlist_id, req.track_ids)
+                if (success) {
+                    call.respond(GenericOkResponse(status = "ok"))
+                } else {
+                    call.respond(HttpStatusCode.NotFound, GenericOkResponse(status = "error"))
+                }
+            }
+
+            post("/api/playlists/{id}/remove-track") {
+                val id = call.parameters["id"] ?: ""
+                val req = call.receive<RemoveTrackFromPlaylistRequest>()
+                if (id == "liked_songs") {
+                    localPlaylistManager.ensureLikedSongsPlaylist()
+                }
+                val success = localPlaylistManager.removeTrack(id, req.track_id)
+                if (success) {
+                    call.respond(GenericOkResponse(status = "ok"))
+                } else {
+                    call.respond(HttpStatusCode.NotFound, GenericOkResponse(status = "error"))
+                }
+            }
+
             get("/api/tracks") {
                 val playlistId = call.request.queryParameters["playlist_id"]
                 if (!playlistId.isNullOrEmpty() && playlistId != "all") {
+                    if (playlistId == "liked_songs") {
+                        localPlaylistManager.ensureLikedSongsPlaylist()
+                    }
                     val pl = localPlaylistManager.getPlaylist(playlistId)
                     if (pl != null) {
                         call.respond(TracksResponse(tracks = pl.tracks, count = pl.tracks.size))
@@ -570,6 +718,357 @@ fun main() {
 
             post("/api/credentials") {
                 call.respond(GenericOkResponse(status = "ok"))
+            }
+
+            // Artist Blacklist Endpoints
+            get("/api/blacklist/artists") {
+                val artists = localBlacklistManager.getAll()
+                call.respond(BlacklistResponse(artists = artists, count = artists.size))
+            }
+
+            post("/api/blacklist/artists") {
+                val req = call.receive<AddBlacklistRequest>()
+                if (req.name.isBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, GenericOkResponse(status = "error"))
+                    return@post
+                }
+                val added = localBlacklistManager.add(req.name, req.external_id)
+                call.respond(AddBlacklistResponse(status = "ok", artist = added))
+            }
+
+            delete("/api/blacklist/artists/{name_or_id}") {
+                val nameOrId = call.parameters["name_or_id"] ?: ""
+                val success = localBlacklistManager.remove(nameOrId)
+                if (success) {
+                    call.respond(GenericOkResponse(status = "ok"))
+                } else {
+                    call.respond(HttpStatusCode.NotFound, GenericOkResponse(status = "error"))
+                }
+            }
+
+            // Discovery Studio Endpoints
+            get("/api/discovery/suggest") {
+                val q = (call.request.queryParameters["q"] ?: "").trim()
+                val type = call.request.queryParameters["type"] ?: "all"
+                val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 8
+
+                if (q.isBlank()) {
+                    call.respond(SuggestResponse(suggestions = emptyList()))
+                    return@get
+                }
+
+                try {
+                    val suggestions = mutableListOf<SuggestionDto>()
+
+                    if (type == "artist" || type == "all") {
+                        val tracks = try { innertubeClient.search(q, "track") } catch (_: Exception) { emptyList() }
+                        val localTracks = localPlaylistManager.getAll().flatMap { it.tracks } +
+                                queueManager.queueState.value.tracks.map { it.toDto() }
+
+                        val candidateArtists = mutableMapOf<String, String>() // artistName -> thumbnail
+                        for (t in tracks) {
+                            if (t.artist.isNotBlank() && t.artist != "Unknown Artist") {
+                                candidateArtists.putIfAbsent(t.artist, t.thumbnailUrl)
+                                for (splitA in SearchUtils.splitArtists(t.artist)) {
+                                    candidateArtists.putIfAbsent(splitA, t.thumbnailUrl)
+                                }
+                            }
+                        }
+                        for (lt in localTracks) {
+                            if (lt.artist.isNotBlank() && lt.artist != "Unknown Artist") {
+                                candidateArtists.putIfAbsent(lt.artist, lt.thumbnailUrl)
+                                for (splitA in SearchUtils.splitArtists(lt.artist)) {
+                                    candidateArtists.putIfAbsent(splitA, lt.thumbnailUrl)
+                                }
+                            }
+                        }
+
+                        val qNorm = SearchUtils.normalize(q)
+                        val matchedArtists = candidateArtists.keys
+                            .filter { artistName ->
+                                val aNorm = SearchUtils.normalize(artistName)
+                                aNorm.contains(qNorm) || SearchUtils.fuzzyMatches(q, artistName)
+                            }
+                            .sortedWith(
+                                compareBy<String> { artistName ->
+                                    val aNorm = SearchUtils.normalize(artistName)
+                                    when {
+                                        aNorm == qNorm -> 0
+                                        aNorm.startsWith(qNorm) -> 1
+                                        else -> 2
+                                    }
+                                }.thenBy { it.length }
+                            )
+
+                        val artistLimit = if (type == "all") minOf(limit / 2, 4) else limit
+                        for (artistName in matchedArtists.take(artistLimit)) {
+                            suggestions.add(
+                                SuggestionDto(
+                                    id = artistName,
+                                    name = artistName,
+                                    title = artistName,
+                                    artist = artistName,
+                                    image_url = candidateArtists[artistName],
+                                    album_art_url = candidateArtists[artistName],
+                                    subtitle = "Artist",
+                                    type = "artist"
+                                )
+                            )
+                        }
+                    }
+
+                    if (type == "track" || type == "all") {
+                        val tracks = try { innertubeClient.search(q, "track") } catch (_: Exception) { emptyList() }
+                        val trackLimit = if (type == "all") limit - suggestions.size else limit
+                        for (t in tracks.take(trackLimit)) {
+                            suggestions.add(
+                                SuggestionDto(
+                                    id = t.id,
+                                    name = t.title,
+                                    title = t.title,
+                                    artist = t.artist,
+                                    album = t.album,
+                                    image_url = t.thumbnailUrl,
+                                    album_art_url = t.thumbnailUrl,
+                                    subtitle = if (t.album.isNotBlank()) "${t.artist} • ${t.album}" else t.artist,
+                                    type = "track"
+                                )
+                            )
+                        }
+                    }
+
+                    if (type == "genre") {
+                        val qNorm = SearchUtils.normalize(q)
+                        val matchedGenres = GenreCatalog.ALL_GENRES.filter {
+                            val nameNorm = SearchUtils.normalize(it.name)
+                            nameNorm.contains(qNorm) || it.id.contains(qNorm) || SearchUtils.fuzzyMatches(q, it.name)
+                        }.take(limit)
+
+                        for (g in matchedGenres) {
+                            suggestions.add(
+                                SuggestionDto(
+                                    id = g.id,
+                                    name = g.name,
+                                    title = g.name,
+                                    subtitle = g.category,
+                                    image_url = null,
+                                    type = "genre"
+                                )
+                            )
+                        }
+                    }
+
+                    call.respond(SuggestResponse(suggestions = suggestions))
+                } catch (e: Exception) {
+                    System.err.println("Discovery suggest error: ${e.message}")
+                    call.respond(SuggestResponse(suggestions = emptyList()))
+                }
+            }
+
+            get("/api/discovery/genres") {
+                val category = call.request.queryParameters["category"] ?: "Popular"
+                val filtered = if (category.isBlank() || category.equals("All", ignoreCase = true)) {
+                    GenreCatalog.ALL_GENRES
+                } else {
+                    GenreCatalog.ALL_GENRES.filter { it.category.equals(category, ignoreCase = true) }
+                }
+                val dtos = filtered.map { GenreItemDto(id = it.id, name = it.name, category = it.category) }
+                call.respond(GenresResponse(genres = dtos))
+            }
+
+            get("/api/discovery/decades") {
+                val list = listOf(
+                    DecadeItemDto("60s", "60s"),
+                    DecadeItemDto("70s", "70s"),
+                    DecadeItemDto("80s", "80s"),
+                    DecadeItemDto("90s", "90s"),
+                    DecadeItemDto("00s", "00s"),
+                    DecadeItemDto("10s", "10s"),
+                    DecadeItemDto("20s", "20s"),
+                    DecadeItemDto("fresh", "Fresh")
+                )
+                call.respond(DecadesResponse(decades = list))
+            }
+
+            get("/api/discovery/active-vibe") {
+                val qTracks = queueManager.queueState.value.tracks
+                val artists = qTracks.map { it.artist }.distinct().take(5)
+                call.respond(ActiveVibeResponse(artists = artists, tracks = qTracks.take(10).map { it.toDto() }))
+            }
+
+            post("/api/discovery/generate") {
+                try {
+                    val req = call.receive<DiscoveryGenerateRequest>()
+                    val candidates = mutableListOf<Track>()
+
+                    // 1. Positive seeds harvesting
+                    for (artistChip in req.artists.filter { it.modifier == "AND" && it.value.isNotBlank() }) {
+                        val tracks = innertubeClient.search(artistChip.value, "track")
+                        candidates.addAll(tracks)
+
+                        // 1a. Launch YouTube Music Recommendation Radio via RDAMVM using top track
+                        val topTrack = tracks.firstOrNull()
+                        if (topTrack != null) {
+                            try {
+                                val radioTracks = innertubeClient.getRadioTracks(topTrack.id)
+                                candidates.addAll(radioTracks)
+                            } catch (_: Exception) {}
+                        }
+
+                        // 1b. Also search YouTube Music mix for artist & related music
+                        try {
+                            val mixTracks = innertubeClient.search("${artistChip.value} mix", "track")
+                            candidates.addAll(mixTracks)
+                        } catch (_: Exception) {}
+
+                        // 1c. Discover collaborators from top tracks
+                        for (t in tracks.take(6)) {
+                            for (collab in SearchUtils.splitArtists(t.artist)) {
+                                if (!collab.equals(artistChip.value, ignoreCase = true) && collab.length > 2) {
+                                    try {
+                                        val collabTracks = innertubeClient.search(collab, "track")
+                                        candidates.addAll(collabTracks.take(4))
+                                    } catch (_: Exception) {}
+                                }
+                            }
+                        }
+                    }
+
+                    for (trackChip in req.tracks.filter { it.modifier == "AND" && it.value.isNotBlank() }) {
+                        val tracks = innertubeClient.search(trackChip.value, "track")
+                        candidates.addAll(tracks)
+                        val topTrack = tracks.firstOrNull()
+                        if (topTrack != null) {
+                            try {
+                                val radioTracks = innertubeClient.getRadioTracks(topTrack.id)
+                                candidates.addAll(radioTracks)
+                            } catch (_: Exception) {}
+                        }
+                    }
+
+                    for (genreChip in req.genres.filter { it.modifier == "AND" && it.value.isNotBlank() }) {
+                        candidates.addAll(innertubeClient.search("${genreChip.value} music", "track"))
+                        candidates.addAll(innertubeClient.search("${genreChip.value} hits", "track"))
+                    }
+
+                    for (decadeChip in req.decades.filter { it.modifier == "AND" && it.value.isNotBlank() }) {
+                        candidates.addAll(innertubeClient.search("${decadeChip.value} songs", "track"))
+                        candidates.addAll(innertubeClient.search("${decadeChip.value} hits", "track"))
+                    }
+
+                    for (kwChip in req.keywords.filter { it.modifier == "AND" && it.value.isNotBlank() }) {
+                        candidates.addAll(innertubeClient.search(kwChip.value, "track"))
+                    }
+
+                    if (req.use_active_vibe) {
+                        val qArtists = queueManager.queueState.value.tracks.map { it.artist }.distinct().take(3)
+                        for (a in qArtists) {
+                            if (a.isNotBlank() && a != "Unknown Artist") {
+                                candidates.addAll(innertubeClient.search(a, "track"))
+                            }
+                        }
+                    }
+
+                    // Fallback if no positive seeds specified
+                    if (candidates.isEmpty()) {
+                        candidates.addAll(innertubeClient.search("trending music", "track"))
+                        candidates.addAll(innertubeClient.search("top hits", "track"))
+                    }
+
+                    var pool = candidates.distinctBy { it.id }
+
+                    // 2. Strict Negative Exclusions
+                    // A. Permanent Blacklist
+                    val blacklistedNames = localBlacklistManager.getNames()
+                    if (blacklistedNames.isNotEmpty()) {
+                        pool = pool.filterNot { ArtistUtils.isTrackBlockedByBlacklist(it.artist, blacklistedNames) }
+                    }
+
+                    // B. Excluded Artists (modifier == "NOT")
+                    val notArtists = req.artists.filter { it.modifier == "NOT" && it.value.isNotBlank() }.map { it.value.trim().lowercase() }
+                    if (notArtists.isNotEmpty()) {
+                        pool = pool.filterNot { track ->
+                            val tArtist = track.artist.lowercase()
+                            val split: List<String> = SearchUtils.splitArtists(track.artist).map { it.lowercase() }
+                            notArtists.any { na -> tArtist.contains(na) || split.any { s: String -> s.contains(na) || na.contains(s) } }
+                        }
+                    }
+
+                    // C. Excluded Tracks (modifier == "NOT")
+                    val notTracks = req.tracks.filter { it.modifier == "NOT" && it.value.isNotBlank() }.map { it.value.trim().lowercase() }
+                    if (notTracks.isNotEmpty()) {
+                        pool = pool.filterNot { track ->
+                            val tTitle = track.title.lowercase()
+                            notTracks.any { nt -> tTitle.contains(nt) }
+                        }
+                    }
+
+                    // D. Excluded Genres / Keywords (modifier == "NOT")
+                    val notKeywords = (req.genres.filter { it.modifier == "NOT" && it.value.isNotBlank() } +
+                            req.keywords.filter { it.modifier == "NOT" && it.value.isNotBlank() })
+                        .map { it.value.trim().lowercase() }
+                    if (notKeywords.isNotEmpty()) {
+                        pool = pool.filterNot { track ->
+                            val combined = "${track.title} ${track.artist} ${track.album}".lowercase()
+                            notKeywords.any { combined.contains(it) }
+                        }
+                    }
+
+                    // E. Live mode filter
+                    val liveKeywords = listOf("live", "en vivo", "ao vivo", "concert", "unplugged", "tour")
+                    if (req.not_live) {
+                        pool = pool.filterNot { track ->
+                            val tLower = track.title.lowercase()
+                            liveKeywords.any { tLower.contains(it) }
+                        }
+                    }
+                    if (req.only_live) {
+                        pool = pool.filter { track ->
+                            val tLower = track.title.lowercase()
+                            liveKeywords.any { tLower.contains(it) }
+                        }
+                    }
+
+                    // F. Remix mode filter
+                    val remixKeywords = listOf("remix", "mix", "edit", "rework", "dub", "extended mix", "club mix")
+                    if (req.not_remix) {
+                        pool = pool.filterNot { track ->
+                            val tLower = track.title.lowercase()
+                            remixKeywords.any { tLower.contains(it) }
+                        }
+                    }
+                    if (req.only_remix) {
+                        pool = pool.filter { track ->
+                            val tLower = track.title.lowercase()
+                            remixKeywords.any { tLower.contains(it) }
+                        }
+                    }
+
+                    // G. Exclude local playlist songs
+                    if (req.not_in_playlists) {
+                        val playlistTrackIds = localPlaylistManager.getAll().flatMap { it.tracks }.map { it.id }.toSet()
+                        pool = pool.filterNot { playlistTrackIds.contains(it.id) }
+                    }
+
+                    // 3. Shuffle & Limits
+                    var resultList = pool
+                    if (req.true_shuffle) {
+                        resultList = ShuffleEngine.shuffleQueue(
+                            currentTracks = resultList,
+                            currentIndex = -1,
+                            applyAntiClumping = req.avoid_consecutive_artists
+                        )
+                    }
+
+                    val targetCount = req.target_count.coerceIn(1, 100)
+                    resultList = resultList.take(targetCount)
+
+                    val dtos = resultList.map { it.toDto() }
+                    call.respond(DiscoveryResponse(tracks = dtos, count = dtos.size))
+                } catch (e: Exception) {
+                    System.err.println("Discovery generate error: ${e.message}")
+                    call.respond(DiscoveryResponse(tracks = emptyList(), count = 0))
+                }
             }
         }
     }.start(wait = true)
