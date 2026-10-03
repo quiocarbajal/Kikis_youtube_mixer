@@ -187,4 +187,22 @@ class LocalPlaylistManagerTest {
         // Clean up backup dir
         manager.backupDir.deleteRecursively()
     }
+
+    @Test
+    fun testFilterPrivateAndDeletedVideos() {
+        val t1 = TrackDto(id = "1", uri = "yt:track:1", title = "Real Song", artist = "A1", primary_artist = "A1", album = "", duration_ms = 180000, durationMs = 180000, thumbnailUrl = "", album_art_url = "", loudnessDb = 0.0)
+        val tPrivate = TrackDto(id = "2", uri = "yt:track:2", title = "Private video", artist = "Unknown", primary_artist = "", album = "", duration_ms = 0, durationMs = 0, thumbnailUrl = "", album_art_url = "", loudnessDb = 0.0)
+        val tDeleted = TrackDto(id = "3", uri = "yt:track:3", title = "[Deleted video]", artist = "Unknown", primary_artist = "", album = "", duration_ms = 0, durationMs = 0, thumbnailUrl = "", album_art_url = "", loudnessDb = 0.0)
+        val tSpanish = TrackDto(id = "4", uri = "yt:track:4", title = "Vídeo eliminado", artist = "Unknown", primary_artist = "", album = "", duration_ms = 0, durationMs = 0, thumbnailUrl = "", album_art_url = "", loudnessDb = 0.0)
+
+        assertTrue(manager.isPrivateOrDeletedTrack(tPrivate))
+        assertTrue(manager.isPrivateOrDeletedTrack(tDeleted))
+        assertTrue(manager.isPrivateOrDeletedTrack(tSpanish))
+        assertTrue(!manager.isPrivateOrDeletedTrack(t1))
+
+        manager.mergeTracks("liked_songs", listOf(t1, tPrivate, tDeleted, tSpanish))
+        val liked = manager.getPlaylist("liked_songs")
+        assertEquals(1, liked?.total_tracks)
+        assertEquals("1", liked?.tracks?.get(0)?.id)
+    }
 }

@@ -1039,8 +1039,9 @@ body.is-col-resizing * {
   box-shadow: 0 0 12px rgba(216, 34, 34, 0.45);
 }
 
-.progress-bar-wrap { width: 100%; height: 5px; background-color: rgba(255, 255, 255, 0.2); border-radius: 3px; overflow: hidden; cursor: pointer; }
-.progress-bar-fill { height: 100%; width: 0%; background-color: var(--ytm-red); border-radius: 3px; transition: width 0.1s linear; }
+.progress-bar-wrap { width: 100%; height: 6px; background-color: rgba(255, 255, 255, 0.2); border-radius: 3px; overflow: hidden; cursor: pointer; position: relative; user-select: none; transition: height 0.15s ease, background-color 0.15s ease; }
+.progress-bar-wrap:hover { height: 8px; background-color: rgba(255, 255, 255, 0.3); }
+.progress-bar-fill { height: 100%; width: 0%; background-color: var(--ytm-red); border-radius: 3px; transition: width 0.1s linear; pointer-events: none; }
 
 .player-right { display: flex; align-items: center; gap: 12px; width: 220px; justify-content: flex-end; }
 .volume-container { display: flex; align-items: center; gap: 6px; width: 90px; }
@@ -1140,6 +1141,7 @@ body.is-col-resizing * {
 
 /* Modals */
 .modal-overlay { position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; animation: fadeIn 0.15s ease; }
+#confirm-modal { z-index: 300 !important; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal-card { background-color: #1a1a1a; border: 1px solid var(--border-subtle); border-radius: 8px; width: 90%; max-width: 460px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.8); }
 .modal-header { padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; }
@@ -2066,3 +2068,102 @@ body.is-col-resizing * {
   color: #ef4444;
   border-color: #ef4444;
 }
+
+/* --- Backup Manager Styles --- */
+.backup-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  transition: background 0.12s ease;
+  gap: 12px;
+}
+.backup-item:last-child {
+  border-bottom: none;
+}
+.backup-item:hover {
+  background: var(--bg-hover);
+}
+.backup-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.backup-header-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.backup-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.backup-badge-pre { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); }
+.backup-badge-post { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); }
+.backup-badge-manual { background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.4); }
+.backup-badge-safety { background: rgba(168, 85, 247, 0.2); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.4); }
+
+.backup-date {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.backup-details {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.backup-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.backup-btn-restore {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.backup-btn-restore:hover {
+  background: #10b981;
+  color: #fff;
+}
+.backup-btn-dl {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  padding: 4px 6px;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.backup-btn-dl:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+.backup-btn-del {
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  padding: 4px 6px;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.backup-btn-del:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+

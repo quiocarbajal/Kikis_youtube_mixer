@@ -177,6 +177,23 @@ class LocalPlaylistManager(
         return liked
     }
 
+    fun isPrivateOrDeletedTrack(t: TrackDto): Boolean {
+        val clean = t.title.trim().lowercase().removePrefix("[").removeSuffix("]").trim()
+        if (clean.isEmpty()) return true
+        return clean == "private video" ||
+               clean == "deleted video" ||
+               clean == "vídeo privado" ||
+               clean == "vídeo eliminado" ||
+               clean == "video privado" ||
+               clean == "video eliminado" ||
+               clean.startsWith("private video") ||
+               clean.startsWith("deleted video") ||
+               clean.startsWith("vídeo privado") ||
+               clean.startsWith("vídeo eliminado") ||
+               clean.startsWith("video privado") ||
+               clean.startsWith("video eliminado")
+    }
+
     @Synchronized
     private fun loadFromDisk() {
         if (!storageFile.exists()) {
@@ -189,7 +206,17 @@ class LocalPlaylistManager(
             if (content.isNotBlank()) {
                 val loaded = json.decodeFromString<List<LocalPlaylist>>(content)
                 playlists.clear()
-                playlists.addAll(loaded)
+                var hadSanitization = false
+                for (pl in loaded) {
+                    val cleanTracks = pl.tracks.filter { !isPrivateOrDeletedTrack(it) }
+                    if (cleanTracks.size != pl.tracks.size) {
+                        hadSanitization = true
+                    }
+                    playlists.add(pl.copy(tracks = cleanTracks, total_tracks = cleanTracks.size))
+                }
+                if (hadSanitization) {
+                    saveToDisk()
+                }
             }
         } catch (e: Exception) {
             System.err.println("Error reading local_playlists.json: ${e.message}")
@@ -372,15 +399,33 @@ class LocalPlaylistManager(
         if (idx == -1) return null
         val current = playlists[idx]
         val now = System.currentTimeMillis()
-        // Deduplicate maintaining local tracks first then any remote-only tracks
-        val seen = mutableSetOf<String>()
-        val merged = mutableListOf<TrackDto>()
+        
+        // Deduplicate while preserving order, filtering private/deleted, and updating durations
+        val map = linkedMapOf<String, TrackDto>()
         for (t in current.tracks) {
-            if (seen.add(t.id)) merged.add(t)
+            if (!isPrivateOrDeletedTrack(t)) {
+                map[t.id] = t
+            }
         }
         for (t in remoteTracks) {
-            if (seen.add(t.id)) merged.add(t)
+            if (!isPrivateOrDeletedTrack(t)) {
+                val existing = map[t.id]
+                if (existing == null) {
+                    map[t.id] = t
+                } else {
+                    val bestDuration = if (t.durationMs > 0) t.durationMs else existing.durationMs
+                    map[t.id] = existing.copy(
+                        duration_ms = bestDuration,
+                        durationMs = bestDuration,
+                        thumbnailUrl = if (t.thumbnailUrl.isNotBlank()) t.thumbnailUrl else existing.thumbnailUrl,
+                        album_art_url = if (t.album_art_url.isNotBlank()) t.album_art_url else existing.album_art_url,
+                        artist = if (existing.artist == "Unknown Artist" && t.artist != "Unknown Artist") t.artist else existing.artist,
+                        album = if (existing.album.isBlank() && t.album.isNotBlank()) t.album else existing.album
+                    )
+                }
+            }
         }
+        val merged = map.values.toList()
         val updated = current.copy(
             tracks = merged,
             total_tracks = merged.size,
@@ -394,8 +439,14 @@ class LocalPlaylistManager(
 
     val backupDir: File = File(storageFile.parentFile ?: File("."), "backups")
 
+    private fun computeLibrarySignature(pls: List<LocalPlaylist>): String {
+        return pls.sortedBy { it.id }.joinToString("||") { pl ->
+            "${pl.id}:${pl.name}:${pl.tracks.joinToString(",") { it.id }}"
+        }
+    }
+
     @Synchronized
-    fun createBackupSnapshot(reason: String = "sync_backup"): File? {
+    fun createBackupSnapshot(reason: String = "sync_backup", force: Boolean = false): File? {
         try {
             if (!backupDir.exists()) {
                 backupDir.mkdirs()
@@ -409,6 +460,23 @@ class LocalPlaylistManager(
             val filename = "ytm_backup_${dateFormat.format(java.util.Date(now))}.json"
             val backupFile = File(backupDir, filename)
             val latestBackupFile = File(backupDir, "latest_backup.json")
+
+            val currentSignature = computeLibrarySignature(all)
+
+            // Deduplication: Only create new snapshot if library content has actually changed
+            if (!force && latestBackupFile.exists()) {
+                try {
+                    val prevContent = latestBackupFile.readText()
+                    val prevSnapshot = json.decodeFromString<LibraryBackupSnapshot>(prevContent)
+                    val prevSignature = computeLibrarySignature(prevSnapshot.playlists)
+                    if (currentSignature == prevSignature) {
+                        println("ℹ️ Library content identical to latest backup snapshot. Skipping duplicate creation ($reason).")
+                        return null
+                    }
+                } catch (_: Exception) {
+                    // If reading latest backup fails, proceed with creating new snapshot
+                }
+            }
 
             val snapshot = LibraryBackupSnapshot(
                 version = "1.0",
@@ -425,7 +493,7 @@ class LocalPlaylistManager(
             val jsonStr = json.encodeToString(snapshot)
             backupFile.writeText(jsonStr)
             latestBackupFile.writeText(jsonStr)
-            println("✅ Automated library backup snapshot created: ${backupFile.absolutePath}")
+            println("✅ Library backup snapshot created (content changed): ${backupFile.absolutePath}")
             return backupFile
         } catch (e: Exception) {
             System.err.println("Failed to create library backup snapshot: ${e.message}")
@@ -455,4 +523,73 @@ class LocalPlaylistManager(
         val latest = File(backupDir, "latest_backup.json")
         return if (latest.exists()) latest else null
     }
+
+    @Synchronized
+    fun listBackups(): List<BackupFileSummary> {
+        if (!backupDir.exists()) return emptyList()
+        val files = backupDir.listFiles { f -> f.isFile && f.name.endsWith(".json") && f.name != "latest_backup.json" } ?: return emptyList()
+        val summaries = mutableListOf<BackupFileSummary>()
+        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+
+        for (f in files) {
+            try {
+                val content = f.readText()
+                val snapshot = json.decodeFromString<LibraryBackupSnapshot>(content)
+                summaries.add(
+                    BackupFileSummary(
+                        filename = f.name,
+                        timestamp = snapshot.timestamp,
+                        formatted_date = dateFormat.format(java.util.Date(snapshot.timestamp)),
+                        iso_date = snapshot.iso_date,
+                        reason = snapshot.reason,
+                        liked_songs_count = snapshot.liked_songs_count,
+                        playlists_count = snapshot.playlists_count,
+                        total_tracks_count = snapshot.total_tracks_count,
+                        file_size_bytes = f.length()
+                    )
+                )
+            } catch (_: Exception) {
+                summaries.add(
+                    BackupFileSummary(
+                        filename = f.name,
+                        timestamp = f.lastModified(),
+                        formatted_date = dateFormat.format(java.util.Date(f.lastModified())),
+                        iso_date = java.time.Instant.ofEpochMilli(f.lastModified()).toString(),
+                        reason = "backup_file",
+                        liked_songs_count = 0,
+                        playlists_count = 0,
+                        total_tracks_count = 0,
+                        file_size_bytes = f.length()
+                    )
+                )
+            }
+        }
+        return summaries.sortedByDescending { it.timestamp }
+    }
+
+    @Synchronized
+    fun getBackupFile(filename: String): File? {
+        val cleanName = File(filename).name
+        val f = File(backupDir, cleanName)
+        return if (f.exists() && f.isFile) f else null
+    }
+
+    @Synchronized
+    fun deleteBackup(filename: String): Boolean {
+        val f = getBackupFile(filename) ?: return false
+        return f.delete()
+    }
 }
+
+@Serializable
+data class BackupFileSummary(
+    val filename: String,
+    val timestamp: Long,
+    val formatted_date: String,
+    val iso_date: String,
+    val reason: String,
+    val liked_songs_count: Int,
+    val playlists_count: Int,
+    val total_tracks_count: Int,
+    val file_size_bytes: Long
+)

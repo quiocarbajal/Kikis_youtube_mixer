@@ -260,6 +260,14 @@ const DOM = {
   confirmModalInput: document.getElementById('confirm-modal-input'),
   confirmModalCancelBtn: document.getElementById('confirm-modal-cancel-btn'),
   confirmModalSubmitBtn: document.getElementById('confirm-modal-submit-btn'),
+
+  // Backups Modal
+  topBackupsBtn: document.getElementById('top-backups-btn'),
+  backupsModal: document.getElementById('backups-modal'),
+  closeBackupsModal: document.getElementById('close-backups-modal'),
+  closeBackupsBtnBottom: document.getElementById('close-backups-btn-bottom'),
+  createManualBackupBtn: document.getElementById('create-manual-backup-btn'),
+  backupsListContainer: document.getElementById('backups-list-container'),
   
   // Context Menus
   customContextMenu: document.getElementById('custom-context-menu'),
@@ -1340,7 +1348,9 @@ async function triggerAutoSync(silent = false) {
         : `✅ Synced ${likedCount} Liked Songs and ${plCount} playlists!`;
       showToast(msg);
     }
+    localStorage.setItem('kiki_has_ever_synced', 'true');
     await checkStatus();
+    await loadLikedTrackIds();
     await loadPlaylists();
     await loadTracks();
   } catch (e) {
@@ -1363,12 +1373,13 @@ function startAuthPoller() {
       if (data && data.authenticated) {
         stopAuthPoller();
         await checkStatus();
+        await loadLikedTrackIds();
         await loadPlaylists();
         await loadTracks();
         triggerAutoSync();
       }
     } catch (e) {}
-  }, 2500);
+  }, 2000);
 }
 
 function stopAuthPoller() {
@@ -1400,10 +1411,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     try { await loadTracks(); } catch (e) {}
     try { await refreshBlacklistCount(); } catch (e) {}
     
-    // If just authorized or library has 0 synced tracks, automatically trigger sync!
-    if (isAuthRedirect || !statusData?.has_synced_tracks || (state.tracks.length === 0 && state.allPlaylists.length === 0)) {
+    // If just authorized or library has never been synced, automatically trigger sync!
+    const hasEverSynced = localStorage.getItem('kiki_has_ever_synced') === 'true';
+    if (isAuthRedirect || !hasEverSynced || !statusData?.has_synced_tracks || (state.tracks.length === 0 && state.allPlaylists.length === 0)) {
       triggerAutoSync();
     }
+  } else {
+    // If not yet authenticated, start background poller so login window completes automatically
+    startAuthPoller();
   }
   try { startPlayerStatePoller(); } catch (e) {}
 });
@@ -1912,7 +1927,13 @@ async function loadTracks() {
     params.append('sort_direction', state.sortState.direction);
 
     const data = await api(`${url}${params.toString()}`);
-    state.tracks = data.tracks || [];
+    state.tracks = (data.tracks || []).filter(t => !isPrivateOrDeletedTrack(t));
+
+    if (state.activeView === 'liked_songs') {
+      state.tracks.forEach(t => state.likedTrackIds.add(t.id));
+    } else if (state.likedTrackIds.size === 0 && state.authenticated) {
+      loadLikedTrackIds().catch(() => {});
+    }
 
     if (state.sortState.column === 'order_index' && !state.sortState.isTemporary) {
       state.userCustomOrderIds = state.tracks.map(t => t.id);
@@ -1987,6 +2008,23 @@ function updateCounts(count) {
   }
 }
 
+function isPrivateOrDeletedTrack(t) {
+  if (!t || !t.title) return true;
+  const clean = t.title.trim().toLowerCase().replace(/^\[|\]$/g, '').trim();
+  return clean === 'private video' || 
+         clean === 'deleted video' || 
+         clean === 'vídeo privado' || 
+         clean === 'vídeo eliminado' || 
+         clean === 'video privado' || 
+         clean === 'video eliminado' ||
+         clean.startsWith('private video') ||
+         clean.startsWith('deleted video') ||
+         clean.startsWith('vídeo privado') ||
+         clean.startsWith('vídeo eliminado') ||
+         clean.startsWith('video privado') ||
+         clean.startsWith('video eliminado');
+}
+
 // --- Render Table: Check | Num | Title | Artist | Album | Dur ---
 function renderTracksTable() {
   DOM.tracksTbody.innerHTML = '';
@@ -2009,6 +2047,8 @@ function renderTracksTable() {
   const fragment = document.createDocumentFragment();
 
   state.tracks.forEach((track, index) => {
+    if (isPrivateOrDeletedTrack(track)) return;
+
     const isSelected = state.selectedIds.has(track.id);
     
     // Strictly match by ID or URI to avoid marking all songs with the same title
@@ -2086,7 +2126,10 @@ function renderTracksTable() {
     // Col 6: Liked Songs Heart Toggle
     const tdLike = document.createElement('td');
     tdLike.className = 'col-like';
-    const isLiked = state.likedTrackIds.has(track.id) || Boolean(track.is_liked);
+    const isLiked = (state.activeView === 'liked_songs') || Boolean(track.is_liked) || state.likedTrackIds.has(track.id);
+    if (isLiked && track.id) {
+      state.likedTrackIds.add(track.id);
+    }
     const likeBtn = document.createElement('button');
     likeBtn.className = `track-like-btn ${isLiked ? 'liked' : ''}`;
     likeBtn.dataset.trackId = track.id;
@@ -2104,7 +2147,8 @@ function renderTracksTable() {
     // Col 7: Duration
     const tdDur = document.createElement('td');
     tdDur.className = 'col-duration';
-    tdDur.textContent = formatDuration(track.duration_ms);
+    const trackDur = track.duration_ms || track.durationMs || 0;
+    tdDur.textContent = formatDuration(trackDur);
     tr.appendChild(tdDur);
 
     // Prevent native text selection on Shift/Cmd/Ctrl click
@@ -2185,10 +2229,16 @@ async function handlePlayRightTrack(track, index, sourceListType) {
   if (isCurrentPlaying) {
     if (ytAudioPlayer && typeof ytAudioPlayer.getPlayerState === 'function') {
       const pState = ytAudioPlayer.getPlayerState();
-      if (pState === 1) { // playing
+      if (pState === 1) { // playing -> pause
         ytAudioPlayer.pauseVideo();
-      } else {
+        updatePlayerPlayPauseButton(false);
+        if (state.playerState) state.playerState.is_playing = false;
+        syncPlayerStateToBackend();
+      } else { // paused -> play
         ytAudioPlayer.playVideo();
+        updatePlayerPlayPauseButton(true);
+        if (state.playerState) state.playerState.is_playing = true;
+        syncPlayerStateToBackend();
       }
       return;
     }
@@ -2553,7 +2603,10 @@ async function playFromIndex(startIndex) {
 async function playNextInActiveList() {
   if (state.tracks.length === 0) return;
   let currIdx = -1;
-  if (state.currentPlayingTrackTitle) {
+  if (state.currentPlayingTrackId) {
+    currIdx = state.tracks.findIndex(t => t.id === state.currentPlayingTrackId);
+  }
+  if (currIdx === -1 && state.currentPlayingTrackTitle) {
     currIdx = state.tracks.findIndex(t => t.title.toLowerCase().trim() === state.currentPlayingTrackTitle.toLowerCase().trim());
   }
   const nextIdx = currIdx + 1;
@@ -2567,9 +2620,13 @@ async function playNextInActiveList() {
 async function playPrevInActiveList() {
   if (state.tracks.length === 0) return;
   let currIdx = 0;
-  if (state.currentPlayingTrackTitle) {
+  if (state.currentPlayingTrackId) {
+    currIdx = state.tracks.findIndex(t => t.id === state.currentPlayingTrackId);
+  }
+  if (currIdx === -1 && state.currentPlayingTrackTitle) {
     currIdx = state.tracks.findIndex(t => t.title.toLowerCase().trim() === state.currentPlayingTrackTitle.toLowerCase().trim());
   }
+  if (currIdx === -1) currIdx = 0;
   const prevIdx = Math.max(0, currIdx - 1);
   playFromIndex(prevIdx);
 }
@@ -4558,6 +4615,7 @@ document.addEventListener('visibilitychange', () => {
 let ytAudioPlayer = null;
 let isYtAudioReady = false;
 let ytProgressInterval = null;
+let isScrubbing = false;
 
 window.onYouTubeIframeAPIReady = function() {
   ytAudioPlayer = new YT.Player('yt-audio-player', {
@@ -4586,16 +4644,46 @@ window.onYouTubeIframeAPIReady = function() {
   });
 };
 
+function syncPlayerStateToBackend() {
+  if (!state.playerState) return;
+  api('/api/player/state', {
+    method: 'POST',
+    body: JSON.stringify(state.playerState)
+  }).catch(() => {});
+}
+
 function onYtAudioStateChange(event) {
   if (event.data === 1) { // YT.PlayerState.PLAYING
     if (!state.playerState) state.playerState = {};
     state.playerState.is_playing = true;
+    if (ytAudioPlayer && typeof ytAudioPlayer.getDuration === 'function') {
+      const durSec = ytAudioPlayer.getDuration() || 0;
+      if (durSec > 0 && state.playerState.item) {
+        state.playerState.item.duration_ms = Math.round(durSec * 1000);
+      }
+    }
     updatePlayerPlayPauseButton(true);
     startYtProgressTimer();
+    syncPlayerStateToBackend();
   } else if (event.data === 2) { // YT.PlayerState.PAUSED
     if (state.playerState) state.playerState.is_playing = false;
     updatePlayerPlayPauseButton(false);
     stopYtProgressTimer();
+    
+    // Maintain exact paused progress position so the bar never resets or jumps to 100%
+    if (ytAudioPlayer && typeof ytAudioPlayer.getCurrentTime === 'function' && state.playerState?.item) {
+      const curSec = ytAudioPlayer.getCurrentTime() || 0;
+      const durSec = ytAudioPlayer.getDuration() || (state.playerState.item.duration_ms ? state.playerState.item.duration_ms / 1000 : 0);
+      if (durSec > 0) {
+        state.playerState.progress_ms = Math.round(curSec * 1000);
+        state.playerState.item.duration_ms = Math.round(durSec * 1000);
+        if (!isScrubbing) {
+          const pct = Math.min(100, Math.max(0, (curSec / durSec) * 100));
+          DOM.progressBarFill.style.width = `${pct}%`;
+        }
+      }
+    }
+    syncPlayerStateToBackend();
   } else if (event.data === 0) { // YT.PlayerState.ENDED
     stopYtProgressTimer();
     playNextInActiveList();
@@ -4605,9 +4693,13 @@ function onYtAudioStateChange(event) {
 function startYtProgressTimer() {
   stopYtProgressTimer();
   ytProgressInterval = setInterval(() => {
+    if (isScrubbing) return;
     if (ytAudioPlayer && typeof ytAudioPlayer.getCurrentTime === 'function' && state.playerState?.item) {
-      const curSec = ytAudioPlayer.getCurrentTime();
-      const durSec = ytAudioPlayer.getDuration() || (state.playerState.item.duration_ms / 1000);
+      const curSec = ytAudioPlayer.getCurrentTime() || 0;
+      let durSec = ytAudioPlayer.getDuration() || 0;
+      if (!durSec && state.playerState.item.duration_ms) {
+        durSec = state.playerState.item.duration_ms / 1000;
+      }
       if (durSec > 0) {
         const curMs = Math.round(curSec * 1000);
         const durMs = Math.round(durSec * 1000);
@@ -4615,9 +4707,20 @@ function startYtProgressTimer() {
         state.playerState.item.duration_ms = durMs;
         const pct = Math.min(100, Math.max(0, (curSec / durSec) * 100));
         DOM.progressBarFill.style.width = `${pct}%`;
+
+        // If the active playing track in table has 0 duration, backfill it dynamically
+        if (state.currentPlayingTrackId && state.tracks) {
+          const t = state.tracks.find(x => x.id === state.currentPlayingTrackId);
+          if (t && (!t.duration_ms || t.duration_ms === 0 || !t.durationMs || t.durationMs === 0)) {
+            t.duration_ms = durMs;
+            t.durationMs = durMs;
+            const rowDur = DOM.tracksTbody?.querySelector(`.track-row[data-track-id="${t.id}"] .col-duration`);
+            if (rowDur) rowDur.textContent = formatDuration(durMs);
+          }
+        }
       }
     }
-  }, 400);
+  }, 250);
 }
 
 function stopYtProgressTimer() {
@@ -4638,6 +4741,7 @@ function playYouTubeTrack(track) {
     ytAudioPlayer.playVideo();
   }
   
+  const trackDur = track.duration_ms || track.durationMs || 0;
   const mockState = {
     is_playing: true,
     progress_ms: 0,
@@ -4648,25 +4752,33 @@ function playYouTubeTrack(track) {
       artist: track.artist,
       album: track.album || '',
       album_art_url: track.album_art_url || track.thumbnailUrl || '',
-      duration_ms: track.duration_ms || track.durationMs || 0
+      duration_ms: trackDur
     }
   };
   state.playerState = mockState;
   updatePlayerUI(mockState);
   startYtProgressTimer();
-  
-  api('/api/player/state', {
-    method: 'POST',
-    body: JSON.stringify(mockState)
-  }).catch(() => {});
+  syncPlayerStateToBackend();
 }
 
 async function pollPlayerState() {
   if (document.hidden) return;
   try {
     const data = await api('/api/player/state');
-    state.playerState = data;
-    updatePlayerUI(data);
+    
+    // Check if we have an active local YouTube player
+    const hasLocalYt = ytAudioPlayer && typeof ytAudioPlayer.getPlayerState === 'function';
+    const ytState = hasLocalYt ? ytAudioPlayer.getPlayerState() : -1;
+    const isYtActive = (ytState === 1 || ytState === 2 || ytState === 3);
+    
+    if (isYtActive && state.playerState?.item) {
+      // Local YouTube player is actively controlling playback; keep is_playing and progress
+      state.playerState.is_playing = (ytState === 1);
+      updatePlayerUI(state.playerState);
+    } else {
+      state.playerState = data;
+      updatePlayerUI(data);
+    }
   } catch (e) {}
 }
 
@@ -4682,7 +4794,15 @@ function updatePlayerPlayPauseButton(isPlaying) {
 }
 
 function updatePlayerUI(data) {
-  const isPlaying = data && data.is_playing;
+  const hasLocalYt = ytAudioPlayer && typeof ytAudioPlayer.getPlayerState === 'function';
+  const ytState = hasLocalYt ? ytAudioPlayer.getPlayerState() : -1;
+  const isYtActive = (ytState === 1 || ytState === 2 || ytState === 3);
+
+  let isPlaying = data && data.is_playing;
+  if (isYtActive) {
+    isPlaying = (ytState === 1);
+  }
+
   const item = data && data.item;
 
   if (item) {
@@ -4694,13 +4814,28 @@ function updatePlayerUI(data) {
     DOM.playerArtist.textContent = item.artist;
     updatePlayerPlayPauseButton(isPlaying);
 
-    // Progress Bar: only overwrite from polled backend state if local YouTube player is NOT actively playing
-    const isYtPlaying = ytAudioPlayer && typeof ytAudioPlayer.getPlayerState === 'function' && ytAudioPlayer.getPlayerState() === 1;
-    if (!isYtPlaying) {
-      const prog = data.progress_ms || 0;
-      const dur = item.duration_ms || 1;
-      const pct = Math.min(100, Math.max(0, (prog / dur) * 100));
-      DOM.progressBarFill.style.width = `${pct}%`;
+    // Progress Bar:
+    if (!isScrubbing) {
+      if (isYtActive) {
+        const curSec = ytAudioPlayer.getCurrentTime() || 0;
+        let durSec = ytAudioPlayer.getDuration() || 0;
+        if (!durSec && item.duration_ms) {
+          durSec = item.duration_ms / 1000;
+        }
+        if (durSec > 0) {
+          const pct = Math.min(100, Math.max(0, (curSec / durSec) * 100));
+          DOM.progressBarFill.style.width = `${pct}%`;
+        }
+      } else {
+        const prog = (data && data.progress_ms) || 0;
+        const dur = (item && item.duration_ms) || 0;
+        if (dur > 0) {
+          const pct = Math.min(100, Math.max(0, (prog / dur) * 100));
+          DOM.progressBarFill.style.width = `${pct}%`;
+        } else {
+          DOM.progressBarFill.style.width = '0%';
+        }
+      }
     }
 
     // Dynamic Vibrant Green Font Highlighting in Table (strictly by ID / URI)
@@ -4717,8 +4852,8 @@ function updatePlayerUI(data) {
       row.classList.toggle('now-playing-row', isThisTrack);
       const rowPlayBtn = row.querySelector('.row-play-btn');
       if (rowPlayBtn) {
-        rowPlayBtn.classList.toggle('playing', isThisTrack);
-        rowPlayBtn.textContent = isThisTrack ? '🔊' : '▶';
+        rowPlayBtn.classList.toggle('playing', isThisTrack && isPlaying);
+        rowPlayBtn.textContent = isThisTrack ? (isPlaying ? '🔊' : '▶') : '▶';
       }
     });
 
@@ -4735,7 +4870,7 @@ function updatePlayerUI(data) {
       const playBtn = sRow.querySelector('.right-item-play-btn');
       if (playBtn) {
         if (isSideTrack) {
-          playBtn.classList.add('playing');
+          playBtn.classList.toggle('playing', isPlaying);
           playBtn.textContent = isPlaying ? '🔊' : '▶';
           const pTitle = isPlaying
             ? (state.currentLang === 'es' ? 'Pausar reproducción' : 'Pause playback')
@@ -5126,10 +5261,16 @@ function initEventListeners() {
   DOM.ctrlPlaypause?.addEventListener('click', async () => {
     if (ytAudioPlayer && typeof ytAudioPlayer.getPlayerState === 'function') {
       const pState = ytAudioPlayer.getPlayerState();
-      if (pState === 1) { // playing
+      if (pState === 1) { // playing -> pause
         ytAudioPlayer.pauseVideo();
-      } else {
+        updatePlayerPlayPauseButton(false);
+        if (state.playerState) state.playerState.is_playing = false;
+        syncPlayerStateToBackend();
+      } else { // paused -> play
         ytAudioPlayer.playVideo();
+        updatePlayerPlayPauseButton(true);
+        if (state.playerState) state.playerState.is_playing = true;
+        syncPlayerStateToBackend();
       }
     } else {
       await api('/api/player/control', { method: 'POST', body: JSON.stringify({ action: 'playpause' }) });
@@ -5144,22 +5285,99 @@ function initEventListeners() {
   });
   DOM.ctrlTrueShuffle?.addEventListener('click', toggleTrueShuffle);
 
-  // Progress Bar Seek Scrubber!
-  DOM.progressBarWrap?.addEventListener('click', async (e) => {
-    if (!state.playerState?.item?.duration_ms) return;
+  // --- Progress Bar Seek & Drag Scrubber ---
+  function getSeekPercentage(e) {
+    if (!DOM.progressBarWrap) return 0;
     const rect = DOM.progressBarWrap.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const pct = Math.max(0, Math.min(1, clickX / rect.width));
-    const newPosMs = Math.round(pct * state.playerState.item.duration_ms);
-    DOM.progressBarFill.style.width = `${pct * 100}%`;
-    if (ytAudioPlayer && typeof ytAudioPlayer.seekTo === 'function') {
-      ytAudioPlayer.seekTo(newPosMs / 1000, true);
+    if (rect.width <= 0) return 0;
+    const clientX = (e.clientX !== undefined) ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : 0));
+    const clickX = clientX - rect.left;
+    return Math.max(0, Math.min(1, clickX / rect.width));
+  }
+
+  async function performSeek(pct) {
+    let durSec = 0;
+    if (ytAudioPlayer && typeof ytAudioPlayer.getDuration === 'function') {
+      durSec = ytAudioPlayer.getDuration() || 0;
     }
+    if (!durSec && state.playerState?.item?.duration_ms) {
+      durSec = state.playerState.item.duration_ms / 1000;
+    }
+    if (!durSec && state.tracks && state.currentPlayingTrackId) {
+      const t = state.tracks.find(x => x.id === state.currentPlayingTrackId);
+      if (t && (t.duration_ms || t.durationMs)) {
+        durSec = (t.duration_ms || t.durationMs) / 1000;
+      }
+    }
+    if (durSec <= 0) durSec = 180; // fallback default 3 mins if duration unknown
+
+    const newPosSec = pct * durSec;
+    const newPosMs = Math.round(newPosSec * 1000);
+
+    if (state.playerState) {
+      state.playerState.progress_ms = newPosMs;
+      if (state.playerState.item) {
+        state.playerState.item.duration_ms = Math.round(durSec * 1000);
+      }
+    }
+    DOM.progressBarFill.style.width = `${pct * 100}%`;
+
+    if (ytAudioPlayer && typeof ytAudioPlayer.seekTo === 'function') {
+      ytAudioPlayer.seekTo(newPosSec, true);
+    }
+
     await api('/api/player/seek', {
       method: 'POST',
       body: JSON.stringify({ position_ms: newPosMs })
     }).catch(() => {});
-    pollPlayerState();
+  }
+
+  DOM.progressBarWrap?.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    isScrubbing = true;
+    DOM.progressBarFill.style.transition = 'none';
+    const pct = getSeekPercentage(e);
+    DOM.progressBarFill.style.width = `${pct * 100}%`;
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isScrubbing) return;
+    const pct = getSeekPercentage(e);
+    DOM.progressBarFill.style.width = `${pct * 100}%`;
+  });
+
+  window.addEventListener('mouseup', (e) => {
+    if (!isScrubbing) return;
+    isScrubbing = false;
+    DOM.progressBarFill.style.transition = 'width 0.1s linear';
+    const pct = getSeekPercentage(e);
+    performSeek(pct);
+  });
+
+  DOM.progressBarWrap?.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      isScrubbing = true;
+      DOM.progressBarFill.style.transition = 'none';
+      const pct = getSeekPercentage(e.touches[0]);
+      DOM.progressBarFill.style.width = `${pct * 100}%`;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (!isScrubbing || e.touches.length !== 1) return;
+    const pct = getSeekPercentage(e.touches[0]);
+    DOM.progressBarFill.style.width = `${pct * 100}%`;
+  }, { passive: true });
+
+  window.addEventListener('touchend', (e) => {
+    if (!isScrubbing) return;
+    isScrubbing = false;
+    DOM.progressBarFill.style.transition = 'width 0.1s linear';
+    const touch = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : (e.touches && e.touches[0]);
+    if (touch) {
+      const pct = getSeekPercentage(touch);
+      performSeek(pct);
+    }
   });
 
   // Volume Slider
@@ -5366,6 +5584,13 @@ function initEventListeners() {
   DOM.settingsBtn?.addEventListener('click', () => DOM.settingsModal.classList.remove('hidden'));
   DOM.closeSettingsModal?.addEventListener('click', () => DOM.settingsModal.classList.add('hidden'));
   DOM.closeSettingsBtnBottom?.addEventListener('click', () => DOM.settingsModal.classList.add('hidden'));
+
+  // Backup Manager Modal Listeners
+  DOM.topBackupsBtn?.addEventListener('click', openBackupsModal);
+  DOM.closeBackupsModal?.addEventListener('click', () => DOM.backupsModal?.classList.add('hidden'));
+  DOM.closeBackupsBtnBottom?.addEventListener('click', () => DOM.backupsModal?.classList.add('hidden'));
+  DOM.createManualBackupBtn?.addEventListener('click', handleCreateManualBackup);
+
   DOM.saveCredentialsBtn?.addEventListener('click', async () => {
     const client_id = DOM.settingsClientId.value.trim();
     const client_secret = DOM.settingsClientSecret.value.trim();
@@ -5401,6 +5626,7 @@ function initEventListeners() {
       state.selectedIds.clear();
       updateSelectionUI();
       DOM.settingsModal?.classList.add('hidden');
+      DOM.backupsModal?.classList.add('hidden');
       DOM.createPlaylistModal?.classList.add('hidden');
       DOM.confirmModal?.classList.add('hidden');
       hideAllContextMenus();
@@ -5414,6 +5640,164 @@ function initEventListeners() {
     } else if (e.key === '/') {
       e.preventDefault();
       DOM.searchInput?.focus();
+    }
+  });
+}
+
+// --- Backup & Restore Manager ---
+async function openBackupsModal() {
+  DOM.backupsModal?.classList.remove('hidden');
+  await loadBackupsList();
+}
+
+async function loadBackupsList() {
+  if (!DOM.backupsListContainer) return;
+  DOM.backupsListContainer.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 12px;">⏳ Loading snapshots...</div>`;
+  try {
+    const res = await api('/api/backup/list');
+    const backups = res.backups || [];
+    renderBackupsList(backups);
+  } catch (e) {
+    DOM.backupsListContainer.innerHTML = `<div style="color: #ef4444; padding: 16px; text-align: center; font-size: 12px;">❌ Failed to load backups: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderBackupsList(backups) {
+  if (!DOM.backupsListContainer) return;
+  if (!backups || backups.length === 0) {
+    DOM.backupsListContainer.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); padding: 24px; font-size: 12px; background: var(--bg-surface-1); border-radius: 6px; border: 1px dashed var(--border-subtle);">
+        No snapshots created yet. Click "➕ Create Snapshot Now" above or sync your library to generate one.
+      </div>
+    `;
+    return;
+  }
+
+  const isEs = state.currentLang === 'es';
+  let html = '';
+  backups.forEach(b => {
+    let badgeClass = 'backup-badge-manual';
+    let badgeLabel = 'MANUAL';
+    const reason = b.reason || b.type || '';
+    if (reason === 'pre_sync') { badgeClass = 'backup-badge-pre'; badgeLabel = 'PRE-SYNC'; }
+    else if (reason === 'post_sync') { badgeClass = 'backup-badge-post'; badgeLabel = 'POST-SYNC'; }
+    else if (reason === 'pre_restore_safety') { badgeClass = 'backup-badge-safety'; badgeLabel = 'SAFETY'; }
+
+    const rawBytes = b.file_size_bytes || b.size_bytes || 0;
+    const sizeKb = (rawBytes / 1024).toFixed(1);
+    const dateFormatted = b.formatted_date || (typeof b.timestamp === 'number' ? new Date(b.timestamp).toLocaleString() : String(b.timestamp || ''));
+    const trackCount = b.total_tracks_count ?? b.track_count ?? 0;
+    const plCount = b.playlists_count ?? b.playlist_count ?? 0;
+
+    html += `
+      <div class="backup-item" data-filename="${escapeHtml(b.filename)}">
+        <div class="backup-meta">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="backup-badge ${badgeClass}">${badgeLabel}</span>
+            <span class="backup-date">${escapeHtml(dateFormatted)}</span>
+          </div>
+          <div class="backup-details">
+            🎵 ${trackCount} tracks · 📑 ${plCount} playlists · 💾 ${sizeKb} KB
+          </div>
+        </div>
+        <div class="backup-actions">
+          <button class="backup-btn-restore" title="${isEs ? 'Restaurar esta versión de biblioteca' : 'Restore this library snapshot'}" data-filename="${escapeHtml(b.filename)}">
+            ↩️ ${isEs ? 'Restaurar' : 'Restore'}
+          </button>
+          <button class="backup-btn-dl" title="${isEs ? 'Descargar JSON' : 'Download JSON'}" data-filename="${escapeHtml(b.filename)}">
+            ⬇️ JSON
+          </button>
+          <button class="backup-btn-del" title="${isEs ? 'Eliminar snapshot' : 'Delete snapshot'}" data-filename="${escapeHtml(b.filename)}">
+            🗑️
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  DOM.backupsListContainer.innerHTML = html;
+
+  // Attach event listeners to items
+  DOM.backupsListContainer.querySelectorAll('.backup-btn-restore').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const filename = btn.getAttribute('data-filename');
+      if (filename) handleRestoreBackup(filename);
+    });
+  });
+
+  DOM.backupsListContainer.querySelectorAll('.backup-btn-dl').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const filename = btn.getAttribute('data-filename');
+      if (filename) {
+        window.open(`/api/backup/file/${encodeURIComponent(filename)}`, '_blank');
+      }
+    });
+  });
+
+  DOM.backupsListContainer.querySelectorAll('.backup-btn-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const filename = btn.getAttribute('data-filename');
+      if (filename) handleDeleteBackup(filename);
+    });
+  });
+}
+
+async function handleCreateManualBackup() {
+  const isEs = state.currentLang === 'es';
+  if (DOM.createManualBackupBtn) DOM.createManualBackupBtn.disabled = true;
+  try {
+    showToast(isEs ? '💾 Creando copia de seguridad...' : '💾 Creating snapshot...', 'info');
+    const res = await api('/api/backup/create', { method: 'POST' });
+    showToast(res.message || (isEs ? '✅ Copia creada con éxito' : '✅ Snapshot created successfully'));
+    await loadBackupsList();
+  } catch (e) {
+    showToast('Backup error: ' + e.message, 'error');
+  } finally {
+    if (DOM.createManualBackupBtn) DOM.createManualBackupBtn.disabled = false;
+  }
+}
+
+function handleRestoreBackup(filename) {
+  const isEs = state.currentLang === 'es';
+  showConfirmModal({
+    title: isEs ? '↩️ Restaurar Copia de Seguridad' : '↩️ Restore Library Snapshot',
+    message: isEs
+      ? `¿Estás seguro de que deseas restaurar "${filename}"? Tu estado actual se guardará automáticamente como copia de seguridad de seguridad (safety backup) antes de proceder.`
+      : `Are you sure you want to restore "${filename}"? A safety backup of your current state will be generated automatically before restoring.`,
+    confirmText: isEs ? 'Sí, Restaurar' : 'Yes, Restore Snapshot',
+    onConfirm: async () => {
+      try {
+        DOM.confirmModal.classList.add('hidden');
+        showToast(isEs ? '⏳ Restaurando copia de seguridad...' : '⏳ Restoring snapshot...', 'info');
+        const res = await api(`/api/backup/restore/${encodeURIComponent(filename)}`, { method: 'POST' });
+        showToast(res.message || (isEs ? '✅ ¡Biblioteca restaurada con éxito!' : '✅ Library restored successfully!'));
+        await loadPlaylists();
+        await loadTracks();
+        await loadBackupsList();
+      } catch (e) {
+        showToast('Restore error: ' + e.message, 'error');
+      }
+    }
+  });
+}
+
+function handleDeleteBackup(filename) {
+  const isEs = state.currentLang === 'es';
+  showConfirmModal({
+    title: isEs ? '🗑️ Eliminar Copia de Seguridad' : '🗑️ Delete Backup Snapshot',
+    message: isEs
+      ? `¿Estás seguro de que deseas eliminar permanentemente "${filename}"?`
+      : `Are you sure you want to permanently delete "${filename}"?`,
+    confirmText: isEs ? 'Eliminar' : 'Delete',
+    onConfirm: async () => {
+      try {
+        DOM.confirmModal.classList.add('hidden');
+        const res = await api(`/api/backup/file/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+        showToast(res.message || (isEs ? '🗑️ Copia eliminada' : '🗑️ Snapshot deleted'));
+        await loadBackupsList();
+      } catch (e) {
+        showToast('Delete error: ' + e.message, 'error');
+      }
     }
   });
 }

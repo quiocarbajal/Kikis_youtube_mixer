@@ -186,7 +186,7 @@ class InnertubeClient(
                     title = col0Runs.get(0).asJsonObject.get("text")?.asString ?: ""
                 }
             }
-            if (title.isEmpty()) return null
+            if (title.isEmpty() || isPrivateOrDeletedVideo(title, null)) return null
 
             // Extract Thumbnail
             var thumbUrl = ""
@@ -632,6 +632,7 @@ class InnertubeClient(
 
                     val vid = obj.get("id")?.asString ?: continue
                     val title = snippet.get("title")?.asString ?: continue
+                    if (isPrivateOrDeletedVideo(title, snippet)) continue
                     val channelTitle = snippet.get("channelTitle")?.asString ?: "Unknown Artist"
                     val publishedAt = snippet.get("publishedAt")?.asString ?: ""
                     val year = if (publishedAt.length >= 4) publishedAt.take(4) else null
@@ -702,7 +703,7 @@ class InnertubeClient(
             val cleanId = if (playlistId.startsWith("VL")) playlistId.removePrefix("VL") else playlistId
             var pageToken: String? = null
             var fetchedCount = 0
-            val maxFetch = 250
+            val maxFetch = 500
 
             do {
                 val url = "https://www.googleapis.com/youtube/v3/playlistItems?playlistId=$cleanId&part=snippet,contentDetails&maxResults=50" +
@@ -713,12 +714,21 @@ class InnertubeClient(
 
                 val root = JsonParser.parseString(respStr).asJsonObject
                 val items = root.getAsJsonArray("items") ?: break
+                val pageTracks = mutableListOf<Track>()
+                val videoIds = mutableListOf<String>()
+
                 for (item in items) {
                     val obj = item.asJsonObject
                     val snippet = obj.getAsJsonObject("snippet") ?: continue
                     val resId = snippet.getAsJsonObject("resourceId") ?: continue
                     val vid = resId.get("videoId")?.asString ?: continue
                     val title = snippet.get("title")?.asString ?: continue
+                    val cleanTitle = title.trim()
+
+                    if (isPrivateOrDeletedVideo(cleanTitle, snippet)) {
+                        continue
+                    }
+
                     val artist = snippet.get("videoOwnerChannelTitle")?.asString
                         ?: snippet.get("channelTitle")?.asString ?: "Unknown Artist"
                     val publishedAt = snippet.get("publishedAt")?.asString ?: ""
@@ -729,12 +739,13 @@ class InnertubeClient(
                         ?: thumbs?.getAsJsonObject("medium")?.get("url")?.asString
                         ?: thumbs?.getAsJsonObject("default")?.get("url")?.asString ?: ""
 
-                    tracks.add(
+                    videoIds.add(vid)
+                    pageTracks.add(
                         Track(
                             id = vid,
-                            title = title,
+                            title = cleanTitle,
                             artist = artist,
-                            album = "",
+                            album = if (cleanId == "LM") "Liked Songs" else "",
                             durationMs = 0L,
                             thumbnailUrl = thumbUrl,
                             loudnessDb = -14.0,
@@ -742,6 +753,14 @@ class InnertubeClient(
                         )
                     )
                 }
+
+                // Batch fetch real durations for this page of videos
+                val durationMap = fetchVideoDurations(videoIds)
+                for (track in pageTracks) {
+                    val dur = durationMap[track.id] ?: 0L
+                    tracks.add(track.copy(durationMs = dur))
+                }
+
                 fetchedCount += items.size()
                 pageToken = root.get("nextPageToken")?.asString
             } while (!pageToken.isNullOrEmpty() && fetchedCount < maxFetch)
@@ -834,6 +853,69 @@ class InnertubeClient(
         } catch (_: Exception) {
             0L
         }
+    }
+
+    private suspend fun fetchVideoDurations(videoIds: List<String>): Map<String, Long> {
+        if (videoIds.isEmpty()) return emptyMap()
+        val durationMap = mutableMapOf<String, Long>()
+        for (chunk in videoIds.chunked(50)) {
+            try {
+                val idsParam = chunk.joinToString(",")
+                val url = "https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=$idsParam"
+                val respStr = client.get(url) {
+                    if (oauthToken.isNotEmpty()) {
+                        header("Authorization", "Bearer $oauthToken")
+                    }
+                }.bodyAsText()
+                val root = JsonParser.parseString(respStr).asJsonObject
+                val items = root.getAsJsonArray("items") ?: continue
+                for (item in items) {
+                    val obj = item.asJsonObject
+                    val vid = obj.get("id")?.asString ?: continue
+                    val contentDetails = obj.getAsJsonObject("contentDetails") ?: continue
+                    val durIso = contentDetails.get("duration")?.asString ?: ""
+                    val ms = parseIsoDuration(durIso)
+                    if (ms > 0) {
+                        durationMap[vid] = ms
+                    }
+                }
+            } catch (e: Exception) {
+                System.err.println("Error fetching video durations: ${e.message}")
+            }
+        }
+        return durationMap
+    }
+
+    private fun isPrivateOrDeletedVideo(title: String, snippet: JsonObject?): Boolean {
+        val clean = title.trim().lowercase().removePrefix("[").removeSuffix("]").trim()
+        if (clean.isEmpty()) return true
+        if (clean == "private video" ||
+            clean == "deleted video" ||
+            clean == "vídeo privado" ||
+            clean == "vídeo eliminado" ||
+            clean == "video privado" ||
+            clean == "video eliminado" ||
+            clean.startsWith("private video") ||
+            clean.startsWith("deleted video") ||
+            clean.startsWith("vídeo privado") ||
+            clean.startsWith("vídeo eliminado") ||
+            clean.startsWith("video privado") ||
+            clean.startsWith("video eliminado")) {
+            return true
+        }
+        if (snippet != null) {
+            val desc = snippet.get("description")?.asString?.lowercase() ?: ""
+            if (desc.contains("this video is private") || desc.contains("this video has been removed")) {
+                return true
+            }
+            val thumbs = snippet.getAsJsonObject("thumbnails")
+            if (thumbs == null || thumbs.size() == 0) {
+                if (clean.contains("private") || clean.contains("deleted") || clean.contains("eliminado")) {
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     private fun parsePlaylistsResponse(jsonStr: String): List<RemotePlaylistInfo> {

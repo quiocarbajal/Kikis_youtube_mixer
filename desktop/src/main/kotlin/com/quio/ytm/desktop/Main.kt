@@ -145,7 +145,8 @@ data class TrackDto(
     val thumbnailUrl: String,
     val album_art_url: String,
     val loudnessDb: Double,
-    val year: String? = null
+    val year: String? = null,
+    val is_liked: Boolean = false
 )
 
 @Serializable
@@ -163,6 +164,12 @@ data class TracksResponse(
 @Serializable
 data class LikedIdsResponse(
     val liked_ids: List<String> = emptyList()
+)
+
+@Serializable
+data class BackupListResponse(
+    val backups: List<BackupFileSummary> = emptyList(),
+    val count: Int = 0
 )
 
 @Serializable
@@ -510,10 +517,10 @@ fun main() {
                                     <h1>Account Connected!</h1>
                                     <div class="badge">👤 ${authData.user_name.ifBlank { "Google User" }}</div>
                                     <p>Your Google account has been connected and your YouTube Music library is now synchronizing safely.</p>
-                                    <a href="http://localhost:$port" class="btn">Return to kiki's youtube mixer</a>
+                                    <a href="http://localhost:$port?auth=success" class="btn">Return to kiki's youtube mixer</a>
                                 </div>
                                 <script>
-                                    setTimeout(() => { window.location.href = "http://localhost:$port"; }, 2000);
+                                    setTimeout(() => { window.location.href = "http://localhost:$port?auth=success"; }, 1500);
                                 </script>
                             </body>
                             </html>
@@ -642,6 +649,11 @@ fun main() {
                 }
             }
 
+            get("/api/backup/list") {
+                val list = localPlaylistManager.listBackups()
+                call.respond(BackupListResponse(backups = list, count = list.size))
+            }
+
             get("/api/backup/latest") {
                 val latest = localPlaylistManager.getLatestBackup()
                 if (latest != null && latest.exists()) {
@@ -651,12 +663,50 @@ fun main() {
                 }
             }
 
+            get("/api/backup/file/{filename}") {
+                val filename = call.parameters["filename"] ?: ""
+                val f = localPlaylistManager.getBackupFile(filename)
+                if (f != null && f.exists()) {
+                    call.respondText(f.readText(), io.ktor.http.ContentType.Application.Json)
+                } else {
+                    call.respond(HttpStatusCode.NotFound, GenericOkResponse(status = "error", message = "Backup not found: $filename"))
+                }
+            }
+
             post("/api/backup/create") {
                 val f = localPlaylistManager.createBackupSnapshot("manual_backup")
                 if (f != null) {
-                    call.respond(GenericOkResponse(status = "ok", message = "Backup created: ${f.name}"))
+                    call.respond(GenericOkResponse(status = "ok", message = "Backup snapshot created: ${f.name}"))
+                } else if (localPlaylistManager.getLatestBackup() != null) {
+                    call.respond(GenericOkResponse(status = "ok", message = "Library content is unchanged since previous snapshot. No duplicate created."))
                 } else {
                     call.respond(HttpStatusCode.InternalServerError, GenericOkResponse(status = "error", message = "Failed to create backup"))
+                }
+            }
+
+            post("/api/backup/restore/{filename}") {
+                val filename = call.parameters["filename"] ?: ""
+                val f = localPlaylistManager.getBackupFile(filename)
+                if (f != null && f.exists()) {
+                    localPlaylistManager.createBackupSnapshot("pre_restore_safety_snapshot", force = true)
+                    val ok = localPlaylistManager.restoreBackup(f)
+                    if (ok) {
+                        call.respond(GenericOkResponse(status = "ok", message = "Library restored from ${f.name}"))
+                    } else {
+                        call.respond(HttpStatusCode.InternalServerError, GenericOkResponse(status = "error", message = "Failed to restore backup"))
+                    }
+                } else {
+                    call.respond(HttpStatusCode.NotFound, GenericOkResponse(status = "error", message = "Backup file not found: $filename"))
+                }
+            }
+
+            delete("/api/backup/file/{filename}") {
+                val filename = call.parameters["filename"] ?: ""
+                val ok = localPlaylistManager.deleteBackup(filename)
+                if (ok) {
+                    call.respond(GenericOkResponse(status = "ok", message = "Deleted backup snapshot: $filename"))
+                } else {
+                    call.respond(HttpStatusCode.NotFound, GenericOkResponse(status = "error", message = "Could not delete backup: $filename"))
                 }
             }
 
@@ -1193,15 +1243,28 @@ fun main() {
                 val sortBy = call.request.queryParameters["sort_by"] ?: "order_index"
                 val sortDirection = call.request.queryParameters["sort_direction"] ?: "asc"
 
+                val likedPl = localPlaylistManager.ensureLikedSongsPlaylist()
+                val likedIdSet = likedPl.tracks.map { it.id }.toSet()
+
                 var rawTracks: List<TrackDto> = if (!playlistId.isNullOrEmpty() && playlistId != "all") {
                     if (playlistId == "liked_songs") {
-                        localPlaylistManager.ensureLikedSongsPlaylist()
+                        likedPl.tracks
+                    } else {
+                        val pl = localPlaylistManager.getPlaylist(playlistId)
+                        pl?.tracks ?: emptyList()
                     }
-                    val pl = localPlaylistManager.getPlaylist(playlistId)
-                    pl?.tracks ?: emptyList()
                 } else {
                     val q = queueManager.queueState.value
                     q.tracks.map { it.toDto() }
+                }
+
+                // Filter out any private or deleted video entries
+                rawTracks = rawTracks.filter { !localPlaylistManager.isPrivateOrDeletedTrack(it) }
+
+                // Tag is_liked accurately for all tracks
+                rawTracks = rawTracks.map { t ->
+                    val liked = (playlistId == "liked_songs") || likedIdSet.contains(t.id)
+                    if (t.is_liked != liked) t.copy(is_liked = liked) else t
                 }
 
                 if (searchQuery.isNotEmpty()) {

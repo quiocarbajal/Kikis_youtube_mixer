@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>kiki's youtube mixer</title>
   <link rel="icon" type="image/jpeg" href="/icon.jpeg">
-  <link rel="stylesheet" href="/style.css?v=7.6">
+  <link rel="stylesheet" href="/style.css?v=8.3">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -40,6 +40,9 @@
         </div>
         <button id="top-sync-btn" class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px; gap: 5px;" data-tooltip-title="Sync YouTube Music Library" data-tooltip="Download all your Liked Songs and playlists from YouTube Music to your local library.">
           <span class="btn-icon">🔄</span> <span class="btn-text">Sync Library</span>
+        </button>
+        <button id="top-backups-btn" class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px; gap: 5px;" data-tooltip-title="Library Backups & Restore" data-tooltip="View local snapshot history, download JSON, or restore previous versions.">
+          <span class="btn-icon">🛡️</span> <span class="btn-text">Backups</span>
         </button>
         <button id="settings-btn" class="settings-gear-btn" data-tooltip-title="Settings & Setup" data-tooltip="YouTube Music account settings, developer credentials, and anti-clumping options.">
           ⚙️
@@ -711,6 +714,35 @@
     </div>
   </div>
 
+  <!-- Modal: Backups & Restore -->
+  <div id="backups-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3>🛡️ Library Backups & Snapshot History</h3>
+        <button id="close-backups-modal" class="icon-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle); gap: 12px;">
+          <div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Zero-Data-Loss Snapshots</div>
+            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">Backups are captured automatically before and after every sync and restore operation.</div>
+          </div>
+          <button id="create-manual-backup-btn" class="btn btn-sm btn-primary" style="white-space: nowrap;">
+            ➕ Create Snapshot Now
+          </button>
+        </div>
+
+        <div id="backups-list-container" style="max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px;">
+          <div style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 12px;">Loading snapshot history...</div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 11px; color: var(--text-muted);">Snapshots are stored safely on your local disk.</span>
+        <button id="close-backups-btn-bottom" class="btn btn-secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Settings -->
   <div id="settings-modal" class="modal-overlay hidden">
     <div class="modal-card">
@@ -792,6 +824,6 @@
     <div id="yt-audio-player"></div>
   </div>
   <script src="https://www.youtube.com/iframe_api"></script>
-  <script src="/app.js?v=8.0"></script>
+  <script src="/app.js?v=8.5"></script>
 </body>
 </html>
