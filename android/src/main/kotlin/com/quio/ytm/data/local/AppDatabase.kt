@@ -41,7 +41,22 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun artistBlacklistDao(): ArtistBlacklistDao
 
     companion object {
-        private const val DATABASE_NAME = "spotify_mixer.db"
+        private const val OLD_DATABASE_NAME = "spotify_mixer.db"
+        private const val DATABASE_NAME = "ytm_mixer.db"
+
+        private fun migrateLegacyDatabaseFile(context: Context) {
+            try {
+                val oldDb = context.getDatabasePath(OLD_DATABASE_NAME)
+                val newDb = context.getDatabasePath(DATABASE_NAME)
+                if (oldDb.exists() && !newDb.exists()) {
+                    oldDb.renameTo(newDb)
+                    val oldWal = context.getDatabasePath("$OLD_DATABASE_NAME-wal")
+                    if (oldWal.exists()) oldWal.renameTo(context.getDatabasePath("$DATABASE_NAME-wal"))
+                    val oldShm = context.getDatabasePath("$OLD_DATABASE_NAME-shm")
+                    if (oldShm.exists()) oldShm.renameTo(context.getDatabasePath("$DATABASE_NAME-shm"))
+                }
+            } catch (_: Exception) {}
+        }
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -71,6 +86,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): AppDatabase {
             return instance ?: synchronized(this) {
+                migrateLegacyDatabaseFile(context.applicationContext)
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,

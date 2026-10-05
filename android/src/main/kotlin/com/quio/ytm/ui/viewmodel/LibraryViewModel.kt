@@ -85,7 +85,6 @@ class LibraryViewModel(
     init {
         viewModelScope.launch {
             val savedToken = repository.getSetting("ytm_access_token")
-                ?: repository.getSetting("spotify_access_token")
             if (!savedToken.isNullOrBlank()) {
                 accessToken = savedToken
                 _uiState.update { it.copy(isLoggedIn = true) }
@@ -120,8 +119,6 @@ class LibraryViewModel(
         viewModelScope.launch {
             repository.setSetting("ytm_access_token", "")
             repository.setSetting("ytm_refresh_token", "")
-            repository.setSetting("spotify_access_token", "")
-            repository.setSetting("spotify_refresh_token", "")
             _uiState.update { it.copy(isLoggedIn = false) }
         }
     }

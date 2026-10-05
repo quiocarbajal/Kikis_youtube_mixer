@@ -112,11 +112,11 @@ class LibraryBackupManager(
             }
             val dateFileName = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(now)
 
-            val backup = SpotifySafetyBackup(
+            val backup = YtmSafetyBackup(
                 version = 1,
                 createdAtUtc = dateFormatUtc.format(now),
                 appVersion = "1.0",
-                spotifyUserId = userEmail,
+                ytmUserId = userEmail,
                 totalLikedTracks = likedBackupTracks.size,
                 totalPlaylists = backupPlaylists.size,
                 likedSongs = likedBackupTracks,

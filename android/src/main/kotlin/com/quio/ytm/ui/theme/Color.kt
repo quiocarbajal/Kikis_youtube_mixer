@@ -27,3 +27,5 @@ val BorderSubtle = Color(0xFF242424)
 val StatusError = Color(0xFFE91429)
 val StatusWarning = Color(0xFFFFA000)
 val StatusInfo = Color(0xFF2E77D0)
+val StatusSuccess = Color(0xFF1DB954)
+

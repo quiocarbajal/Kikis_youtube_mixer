@@ -3,13 +3,13 @@ package com.quio.ytm.data.backup
 import com.google.gson.annotations.SerializedName
 
 /**
- * Machine-readable models for complete Spotify Library Safety Backups.
+ * Machine-readable models for complete YouTube Music Library Safety Backups.
  */
-data class SpotifySafetyBackup(
+data class YtmSafetyBackup(
     @SerializedName("version") val version: Int = 1,
     @SerializedName("created_at_utc") val createdAtUtc: String,
     @SerializedName("app_version") val appVersion: String = "1.0",
-    @SerializedName("spotify_user_id") val spotifyUserId: String? = null,
+    @SerializedName("ytm_user_id", alternate = ["spotify_user_id"]) val ytmUserId: String? = null,
     @SerializedName("total_liked_tracks") val totalLikedTracks: Int,
     @SerializedName("total_playlists") val totalPlaylists: Int,
     @SerializedName("liked_songs") val likedSongs: List<BackupTrack>,

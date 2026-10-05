@@ -79,6 +79,7 @@ import com.quio.ytm.ui.theme.BgSurface2
 import com.quio.ytm.ui.theme.BorderSubtle
 import com.quio.ytm.ui.theme.YoutubeRed
 import com.quio.ytm.ui.theme.StatusError
+import com.quio.ytm.ui.theme.StatusSuccess
 import com.quio.ytm.ui.theme.Strings
 import com.quio.ytm.ui.theme.TextMuted
 import com.quio.ytm.ui.theme.TextPrimary
@@ -299,7 +300,7 @@ fun CatalogSearchContent(
                 onClick = { onSelectCatalogOperator(SearchLogicOperator.AND) },
                 label = { Text("Y (Todas)", style = MaterialTheme.typography.labelSmall) },
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = YoutubeRed,
+                    selectedContainerColor = StatusSuccess,
                     selectedLabelColor = Color.Black,
                     containerColor = BgSurface2,
                     labelColor = TextSecondary
@@ -377,7 +378,7 @@ fun CatalogSearchContent(
                     keyboardController?.hide()
                     onAddCatalogModifier(query, ChipModifier.INCLUDE)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = YoutubeRed),
+                colors = ButtonDefaults.buttonColors(containerColor = StatusSuccess),
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.height(48.dp)
             ) {
@@ -443,7 +444,7 @@ fun CatalogSearchContent(
                             )
                         },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = if (isInclude) YoutubeRed else StatusError,
+                            selectedContainerColor = if (isInclude) StatusSuccess else StatusError,
                             selectedLabelColor = if (isInclude) Color.Black else Color.White
                         ),
                         shape = RoundedCornerShape(16.dp)
@@ -591,7 +592,7 @@ fun SurpriseMeContent(
                         keyboardController?.hide()
                         onAddArtistModifier(state.artistInputText, ChipModifier.INCLUDE)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = YoutubeRed),
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusSuccess),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.height(48.dp)
                 ) {
@@ -657,7 +658,7 @@ fun SurpriseMeContent(
                                 )
                             },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = if (isInclude) YoutubeRed else StatusError,
+                                selectedContainerColor = if (isInclude) StatusSuccess else StatusError,
                                 selectedLabelColor = if (isInclude) Color.Black else Color.White
                             ),
                             shape = RoundedCornerShape(16.dp)
@@ -720,7 +721,7 @@ fun SurpriseMeContent(
                         keyboardController?.hide()
                         onAddGenreModifier(state.genreInputText, ChipModifier.INCLUDE)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = YoutubeRed),
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusSuccess),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.height(48.dp)
                 ) {
@@ -786,7 +787,7 @@ fun SurpriseMeContent(
                                 )
                             },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = if (isInclude) YoutubeRed else StatusError,
+                                selectedContainerColor = if (isInclude) StatusSuccess else StatusError,
                                 selectedLabelColor = if (isInclude) Color.Black else Color.White
                             ),
                             shape = RoundedCornerShape(16.dp)
@@ -849,7 +850,7 @@ fun SurpriseMeContent(
                         keyboardController?.hide()
                         onAddTrackModifier(state.trackInputText, ChipModifier.INCLUDE)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = YoutubeRed),
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusSuccess),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.height(48.dp)
                 ) {
@@ -921,7 +922,7 @@ fun SurpriseMeContent(
                                 )
                             },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = if (isInclude) YoutubeRed else StatusError,
+                                selectedContainerColor = if (isInclude) StatusSuccess else StatusError,
                                 selectedLabelColor = if (isInclude) Color.Black else Color.White
                             ),
                             shape = RoundedCornerShape(16.dp)

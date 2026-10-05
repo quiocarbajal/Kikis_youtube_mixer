@@ -1,5 +1,3 @@
 <resources>
-    <string name="app_name">Kiki\'s Spotify Mixer</string>
-    <string name="spotify_redirect_scheme">kikispotifymixer</string>
-    <string name="spotify_redirect_host">callback</string>
+    <string name="app_name">YouTube Music Player</string>
 </resources>

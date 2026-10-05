@@ -118,111 +118,7 @@ class DiscoverViewModel(
         "Pearl Jam", "Smashing Pumpkins", "Tears for Fears", "Joy Division", "Talking Heads", "a-ha"
     )
 
-    // Master Catalog with 160+ authentic, real songs
-    private val masterCatalog = listOf(
-        TrackEntity("0vrZoFXahwpthoKGWI4L96", "spotify:track:0vrZoFXahwpthoKGWI4L96", "Zombie", "The Cranberries", "20th Century Masters - The Millennium Collection: The Best Of The Cranberries", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2736a9239356b0d3d29f184aa66", durationMs = 307440L, popularity = 50, artistPopularity = 50),
-        TrackEntity("3HHehSGzW9dhs2V7Sod4jX", "spotify:track:3HHehSGzW9dhs2V7Sod4jX", "Linger", "The Cranberries", "Stars: The Best Of The Cranberries 1992-2002", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2736c4efca9f5e949a2f9cc3ac4", durationMs = 274773L, popularity = 50, artistPopularity = 50),
-        TrackEntity("5xRZQa1Cw33PLDMYwYJqWW", "spotify:track:5xRZQa1Cw33PLDMYwYJqWW", "Dreams - Remastered 2026", "The Cranberries", "Everybody Else Is Doing It, So Why Can't We? (Deluxe / Remastered 2026)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2731d4abdbd69dfd81d4a8fd551", durationMs = 273706L, popularity = 50, artistPopularity = 50),
-        TrackEntity("3k8qSv5e8ALW6tA9cpY9mm", "spotify:track:3k8qSv5e8ALW6tA9cpY9mm", "Ode To My Family - 2025 Remastered", "The Cranberries", "No Need To Argue (2025 Remastered)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27320a28883cdd0fc7d5f85a9a9", durationMs = 270600L, popularity = 50, artistPopularity = 50),
-        TrackEntity("4it4NYn9wNqGV54joA6oN0", "spotify:track:4it4NYn9wNqGV54joA6oN0", "De Música Ligera", "Soda Stereo", "Obras Cumbres (Parte 2)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2731bbe81fc1e928f05149e49ab", durationMs = 213453L, popularity = 50, artistPopularity = 50),
-        TrackEntity("7J2885UBOaG6x3LLkp2YGf", "spotify:track:7J2885UBOaG6x3LLkp2YGf", "En La Ciudad De La Furia - Remasterizado 2007", "Soda Stereo", "Doble Vida (Remastered)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27382cf3a9e2e2b6b1b3f994d38", durationMs = 346053L, popularity = 50, artistPopularity = 50),
-        TrackEntity("71awpJoi5bqGMBrTkHDDoL", "spotify:track:71awpJoi5bqGMBrTkHDDoL", "Persiana Americana - Remasterizado 2007", "Soda Stereo", "Signos (Remastered)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2734a6f5598c41e77ae78cab725", durationMs = 292266L, popularity = 50, artistPopularity = 50),
-        TrackEntity("1Tja3miBbbENpqIOAqGWXa", "spotify:track:1Tja3miBbbENpqIOAqGWXa", "Prófugos - Remasterizado 2007", "Soda Stereo", "Signos (Remastered)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2734a6f5598c41e77ae78cab725", durationMs = 317613L, popularity = 50, artistPopularity = 50),
-        TrackEntity("65DBZofI0b79kfHTcWWDuU", "spotify:track:65DBZofI0b79kfHTcWWDuU", "Trátame Suavemente - Remasterizado 2007", "Soda Stereo", "Soda Stereo (Remastered)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2738fd9b16eb6bdd20c95717258", durationMs = 200800L, popularity = 50, artistPopularity = 50),
-        TrackEntity("3uMYq07Kj5m564OQwdSCrD", "spotify:track:3uMYq07Kj5m564OQwdSCrD", "Cuando Pase El Temblor - Remasterizado 2007", "Soda Stereo", "Nada Personal (Remastered)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273e28947f6ad2f100af9c1965a", durationMs = 229160L, popularity = 50, artistPopularity = 50),
-        TrackEntity("3oqWr0jDWNXxWufNogGREp", "spotify:track:3oqWr0jDWNXxWufNogGREp", "Crimen", "Gustavo Cerati", "Ahí Vamos", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273f89f01679779a2246c78bc7a", durationMs = 232026L, popularity = 50, artistPopularity = 50),
-        TrackEntity("6gwaa6ElIixNTvu6RwkMyo", "spotify:track:6gwaa6ElIixNTvu6RwkMyo", "Puente", "Gustavo Cerati", "Bocanada", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2731152471596980e1bba03b6ab", durationMs = 274444L, popularity = 50, artistPopularity = 50),
-        TrackEntity("1rh4kDY9T4fHVDum8Foi5k", "spotify:track:1rh4kDY9T4fHVDum8Foi5k", "Adiós", "Gustavo Cerati", "Ahí Vamos", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273f89f01679779a2246c78bc7a", durationMs = 233746L, popularity = 50, artistPopularity = 50),
-        TrackEntity("29iIRrSuANyjnwag69PHOJ", "spotify:track:29iIRrSuANyjnwag69PHOJ", "Demoliendo Hoteles", "Charly García", "Piano Bar", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273a89f53c13537b933a43d2600", durationMs = 135973L, popularity = 50, artistPopularity = 50),
-        TrackEntity("4VikOud5ZmdmHH6h7uQeDB", "spotify:track:4VikOud5ZmdmHH6h7uQeDB", "Nos Siguen Pegando Abajo", "Charly García", "Clics Modernos", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273b14842a87b833bc0a9339f60", durationMs = 206720L, popularity = 50, artistPopularity = 50),
-        TrackEntity("2MXqrO1RBfek6RoijghYYp", "spotify:track:2MXqrO1RBfek6RoijghYYp", "Promesas Sobre El Bidet", "Charly García", "Piano Bar", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273a89f53c13537b933a43d2600", durationMs = 164360L, popularity = 50, artistPopularity = 50),
-        TrackEntity("3k9dGCm2R2Y70e87aMHYC3", "spotify:track:3k9dGCm2R2Y70e87aMHYC3", "Hablando a Tu Corazón", "Charly García, Pedro Aznar", "García 87/93", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27342542c948d51893462874c89", durationMs = 255266L, popularity = 50, artistPopularity = 50),
-        TrackEntity("6dOzqs6o4DNzXs4jF2v1Yq", "spotify:track:6dOzqs6o4DNzXs4jF2v1Yq", "Rezo por Vos", "Charly García", "Parte De La Religion", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273e4aaeab8b89233708ba856b9", durationMs = 269053L, popularity = 50, artistPopularity = 50),
-        TrackEntity("6hmYi0E6EBEmDeztQHaH0C", "spotify:track:6hmYi0E6EBEmDeztQHaH0C", "Bajan", "Pescado Rabioso", "Artaud", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27350db5a166ea23d5d6c4cd387", durationMs = 204466L, popularity = 50, artistPopularity = 50),
-        TrackEntity("6R8L42PFd2OGP32rpMZ1XN", "spotify:track:6R8L42PFd2OGP32rpMZ1XN", "Seguir Viviendo Sin Tu Amor - Remasterizado 2025", "Luis Alberto Spinetta", "Pelusón Of Milk (Remasterizado 2025)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273b106e43073dbf04202879816", durationMs = 155035L, popularity = 50, artistPopularity = 50),
-        TrackEntity("6GPkBUXMrGSkwK3TrrHHXN", "spotify:track:6GPkBUXMrGSkwK3TrrHHXN", "Muchacha (Ojos de Papel)", "Almendra", "Almendra (50 Años)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273ccf6d7a68e129185513921e8", durationMs = 184480L, popularity = 50, artistPopularity = 50),
-        TrackEntity("62FQCSvSUSG3m9uajVkvWe", "spotify:track:62FQCSvSUSG3m9uajVkvWe", "Lamento Boliviano", "Los Enanitos Verdes", "Coleccion Aniversario", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2738d527c66da6bf8cbdba78814", durationMs = 223146L, popularity = 50, artistPopularity = 50),
-        TrackEntity("6OKhBvddAlWxxFnjbpilhu", "spotify:track:6OKhBvddAlWxxFnjbpilhu", "La Muralla Verde", "Los Enanitos Verdes", "Contrareloj", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273c3d72bdf184c8ca79d8a1d0b", durationMs = 161440L, popularity = 50, artistPopularity = 50),
-        TrackEntity("3V9dPuQWZOUQY3KYJJWnP3", "spotify:track:3V9dPuQWZOUQY3KYJJWnP3", "Guitarras Blancas", "Los Enanitos Verdes", "Originales - 20 Exitos", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273b73b130ac6b4b5bef099831a", durationMs = 266826L, popularity = 50, artistPopularity = 50),
-        TrackEntity("0dsViRiDTIuexAL42Nc1Kh", "spotify:track:0dsViRiDTIuexAL42Nc1Kh", "Irresponsables", "Babasonicos", "Infame", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2734febc01367fbd2d1ec9f1d60", durationMs = 156197L, popularity = 50, artistPopularity = 50),
-        TrackEntity("0SaKhiBPgdRaQKA7Bxu3ek", "spotify:track:0SaKhiBPgdRaQKA7Bxu3ek", "Putita", "Babasonicos", "Infame", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2734febc01367fbd2d1ec9f1d60", durationMs = 225706L, popularity = 50, artistPopularity = 50),
-        TrackEntity("1devU3Tqs5bMqo1GtWQhoa", "spotify:track:1devU3Tqs5bMqo1GtWQhoa", "El Colmo", "Babasonicos", "Anoche", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2737f947995d409ba37ef11b82d", durationMs = 160786L, popularity = 50, artistPopularity = 50),
-        TrackEntity("0FbilOaXvc1w16gPL096nb", "spotify:track:0FbilOaXvc1w16gPL096nb", "Mariposa tecknicolor", "Fito Paez", "ROCK NACIONAL Y MÁS ROCK VOL.II", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2736a81c14b3150fee00fe0df68", durationMs = 222346L, popularity = 50, artistPopularity = 50),
-        TrackEntity("2PkTjm1QAJCZbJ9MqC4RqA", "spotify:track:2PkTjm1QAJCZbJ9MqC4RqA", "11 Y 6", "Fito Paez", "Giros", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273921417baf700cc9da1d43b80", durationMs = 178266L, popularity = 50, artistPopularity = 50),
-        TrackEntity("1PQzZbitOJ6XPFg7FFzsKQ", "spotify:track:1PQzZbitOJ6XPFg7FFzsKQ", "El amor después del amor", "Fito Paez", "El Amor Después del Amor", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273b80f37385bd537d17f9be93a", durationMs = 311893L, popularity = 50, artistPopularity = 50),
-        TrackEntity("1g02x46MYE1gclJfGQiQbA", "spotify:track:1g02x46MYE1gclJfGQiQbA", "Una Luna de Miel en la Mano - En Vivo", "Virus, Ale Sergi", "Caja Negra", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273281627614f72c23f402f59a5", durationMs = 335240L, popularity = 50, artistPopularity = 50),
-        TrackEntity("6hiXQhwO98tEbNNbWtNS1Y", "spotify:track:6hiXQhwO98tEbNNbWtNS1Y", "Imágenes Paganas", "Virus", "Vivo", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273c19f681b4af6195db4ced77b", durationMs = 269093L, popularity = 50, artistPopularity = 50),
-        TrackEntity("4UXE0ZLGIoLUOFqTECzoQe", "spotify:track:4UXE0ZLGIoLUOFqTECzoQe", "Pronta Entrega", "Virus", "Locura", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273292c1ca632a1e120d1208c95", durationMs = 273306L, popularity = 50, artistPopularity = 50),
-        TrackEntity("2Foc5Q5nqNiosCNqttzHof", "spotify:track:2Foc5Q5nqNiosCNqttzHof", "Get Lucky (Radio Edit) [feat. Pharrell Williams and Nile Rodgers]", "Daft Punk, Pharrell Williams, Nile Rodgers", "Get Lucky (Radio Edit) [feat. Pharrell Williams and Nile Rodgers]", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27319a88dd5c7118e87d7b1619e", durationMs = 247632L, popularity = 50, artistPopularity = 50),
-        TrackEntity("2cGxRwrMyEAp8dEbuZaVv6", "spotify:track:2cGxRwrMyEAp8dEbuZaVv6", "Instant Crush (feat. Julian Casablancas)", "Daft Punk, Julian Casablancas", "Random Access Memories", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2739b9b36b0e22870b9f542d937", durationMs = 337560L, popularity = 50, artistPopularity = 50),
-        TrackEntity("0DiWol3AO6WpXZgp0goxAV", "spotify:track:0DiWol3AO6WpXZgp0goxAV", "One More Time", "Daft Punk", "Discovery", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2731e81bff9807a9e629fce5ade", durationMs = 320357L, popularity = 50, artistPopularity = 50),
-        TrackEntity("5W3cjX2J3tjhG8zb6u0qHn", "spotify:track:5W3cjX2J3tjhG8zb6u0qHn", "Harder, Better, Faster, Stronger", "Daft Punk", "Discovery", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2731e81bff9807a9e629fce5ade", durationMs = 226413L, popularity = 50, artistPopularity = 50),
-        TrackEntity("1pKYYY0dkg23sQQXi0Q5zN", "spotify:track:1pKYYY0dkg23sQQXi0Q5zN", "Around the World", "Daft Punk", "Homework", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2738ac778cc7d88779f74d33311", durationMs = 429533L, popularity = 50, artistPopularity = 50),
-        TrackEntity("7MXVkk9YMctZqd1Srtv4MB", "spotify:track:7MXVkk9YMctZqd1Srtv4MB", "Starboy", "The Weeknd, Daft Punk", "Starboy", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2734718e2b124f79258be7bc452", durationMs = 230453L, popularity = 50, artistPopularity = 50),
-        TrackEntity("0VjIjW4GlUZAMYd2vXMi3b", "spotify:track:0VjIjW4GlUZAMYd2vXMi3b", "Blinding Lights", "The Weeknd", "After Hours", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36", durationMs = 200040L, popularity = 50, artistPopularity = 50),
-        TrackEntity("5QO79kh1waicV47BqGRL3g", "spotify:track:5QO79kh1waicV47BqGRL3g", "Save Your Tears", "The Weeknd", "After Hours", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36", durationMs = 215626L, popularity = 50, artistPopularity = 50),
-        TrackEntity("5FVd6KXrgO9B3JPmC8OPst", "spotify:track:5FVd6KXrgO9B3JPmC8OPst", "Do I Wanna Know?", "Arctic Monkeys", "AM", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2734ae1c4c5c45aabe565499163", durationMs = 272394L, popularity = 50, artistPopularity = 50),
-        TrackEntity("2AT8iROs4FQueDv2c8q2KE", "spotify:track:2AT8iROs4FQueDv2c8q2KE", "R U Mine?", "Arctic Monkeys", "AM", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2734ae1c4c5c45aabe565499163", durationMs = 201726L, popularity = 50, artistPopularity = 50),
-        TrackEntity("0BxE4FqsDD1Ot4YuBXwAPp", "spotify:track:0BxE4FqsDD1Ot4YuBXwAPp", "505", "Arctic Monkeys", "Favourite Worst Nightmare", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273b1f8da74f225fa1225cdface", durationMs = 253586L, popularity = 50, artistPopularity = 50),
-        TrackEntity("2x8evxqUlF0eRabbW2JBJd", "spotify:track:2x8evxqUlF0eRabbW2JBJd", "Fluorescent Adolescent", "Arctic Monkeys", "Favourite Worst Nightmare", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273b1f8da74f225fa1225cdface", durationMs = 183893L, popularity = 50, artistPopularity = 50),
-        TrackEntity("2JiDi0qAXsPwhPqA2qaKGt", "spotify:track:2JiDi0qAXsPwhPqA2qaKGt", "Bohemian Rhapsody", "Queen", "A Night At The Opera", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273fdab4a163ab9f6db72c952ee", durationMs = 355154L, popularity = 50, artistPopularity = 50),
-        TrackEntity("1NHWG8zxSEypSRF3UufrnO", "spotify:track:1NHWG8zxSEypSRF3UufrnO", "Don't Stop Me Now", "Queen", "Jazz", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2736c03b757ece416e014feef5e", durationMs = 209413L, popularity = 50, artistPopularity = 50),
-        TrackEntity("40HGoSHn9gELCcJu8TLakq", "spotify:track:40HGoSHn9gELCcJu8TLakq", "Under Pressure - Single Version; 2017 Remaster", "Queen, David Bowie", "A New Career in a New Town (1977 - 1982)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27310498de46a76d45a3b982a5c", durationMs = 248720L, popularity = 50, artistPopularity = 50),
-        TrackEntity("1KPuohcXPmJYQfdyg9zKmR", "spotify:track:1KPuohcXPmJYQfdyg9zKmR", "Another One Bites The Dust", "Queen", "The Game", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273a4e6eac83c0fe38bf682f643", durationMs = 214653L, popularity = 50, artistPopularity = 50),
-        TrackEntity("7Jh1bpe76CNTCgdgAdBw4Z", "spotify:track:7Jh1bpe76CNTCgdgAdBw4Z", "\"Heroes\" - 2017 Remaster", "David Bowie", "\"Heroes\" (2017 Remaster)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273204f41d52743c6a9efd62985", durationMs = 371413L, popularity = 50, artistPopularity = 50),
-        TrackEntity("3ZE3wv8V3w2T2f7nOCjV0N", "spotify:track:3ZE3wv8V3w2T2f7nOCjV0N", "Life on Mars? - 2015 Remaster", "David Bowie", "Hunky Dory (2015 Remaster)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273e464904cc3fed2b40fc55120", durationMs = 235986L, popularity = 50, artistPopularity = 50),
-        TrackEntity("0pQskrTITgmCMyr85tb9qq", "spotify:track:0pQskrTITgmCMyr85tb9qq", "Starman - 2012 Remaster", "David Bowie", "The Rise and Fall of Ziggy Stardust and the Spiders from Mars (2012 Remaster)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273c41f4e1133b0e6c5fcf58680", durationMs = 254293L, popularity = 50, artistPopularity = 50),
-        TrackEntity("0ofHAoxe9vBkTCp2UQIavz", "spotify:track:0ofHAoxe9vBkTCp2UQIavz", "Dreams - 2004 Remaster", "Fleetwood Mac", "Rumours (Super Deluxe)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273e52a59a28efa4773dd2bfe1b", durationMs = 257800L, popularity = 50, artistPopularity = 50),
-        TrackEntity("4xh7W7tlNMIczFhupCPniY", "spotify:track:4xh7W7tlNMIczFhupCPniY", "Go Your Own Way - 2004 Remaster", "Fleetwood Mac", "Rumours (Super Deluxe)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273e52a59a28efa4773dd2bfe1b", durationMs = 223613L, popularity = 50, artistPopularity = 50),
-        TrackEntity("7Dm3dV3WPNdTgxoNY7YFnc", "spotify:track:7Dm3dV3WPNdTgxoNY7YFnc", "The Chain - 2004 Remaster", "Fleetwood Mac", "Rumours", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27357df7ce0eac715cf70e519a7", durationMs = 269813L, popularity = 50, artistPopularity = 50),
-        TrackEntity("5ihS6UUlyQAfmp48eSkxuQ", "spotify:track:5ihS6UUlyQAfmp48eSkxuQ", "Landslide", "Fleetwood Mac", "Fleetwood Mac", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2734fb043195e8d07e72edc7226", durationMs = 199493L, popularity = 50, artistPopularity = 50),
-        TrackEntity("6K4t31amVTZDgR3sKmwUJJ", "spotify:track:6K4t31amVTZDgR3sKmwUJJ", "The Less I Know The Better", "Tame Impala", "Currents", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2739e1cfc756886ac782e363d79", durationMs = 216320L, popularity = 50, artistPopularity = 50),
-        TrackEntity("0LtOwyZoSNZKJWHqjzADpW", "spotify:track:0LtOwyZoSNZKJWHqjzADpW", "Feels Like We Only Go Backwards", "Tame Impala", "Lonerism", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273370c12f82872c9cfaee80193", durationMs = 192960L, popularity = 50, artistPopularity = 50),
-        TrackEntity("37mKgJHxfdyt3B6JODoYuj", "spotify:track:37mKgJHxfdyt3B6JODoYuj", "Feel Good Inc.", "Gorillaz, De La Soul", "Mood Booster", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273aeb31f894ba9768b91a5d9a3", durationMs = 222640L, popularity = 50, artistPopularity = 50),
-        TrackEntity("1RKUoGiLEbcXN4GY4spQDx", "spotify:track:1RKUoGiLEbcXN4GY4spQDx", "Clint Eastwood", "Gorillaz, Del The Funky Homosapien", "Gorillaz", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273f6c46838e4425ea96e2562fe", durationMs = 340920L, popularity = 50, artistPopularity = 50),
-        TrackEntity("7kzKAuUzOITUauHAhoMoxA", "spotify:track:7kzKAuUzOITUauHAhoMoxA", "Last Nite", "The Strokes", "Is This It", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273a388a3f20d1bf2123249cc79", durationMs = 193506L, popularity = 50, artistPopularity = 50),
-        TrackEntity("57Xjny5yNzAcsxnusKmAfA", "spotify:track:57Xjny5yNzAcsxnusKmAfA", "Reptilia", "The Strokes", "Room On Fire", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2730f35726025e0f025da4c688f", durationMs = 219826L, popularity = 50, artistPopularity = 50),
-        TrackEntity("56NkIxSZZiMpFP5ZNSxtnT", "spotify:track:56NkIxSZZiMpFP5ZNSxtnT", "Someday", "The Strokes", "Is This It", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273a388a3f20d1bf2123249cc79", durationMs = 183573L, popularity = 50, artistPopularity = 50),
-        TrackEntity("68hYdj3GepWm2R202KhJT7", "spotify:track:68hYdj3GepWm2R202KhJT7", "1901", "Phoenix", "Wolfgang Amadeus Phoenix", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27362cbc442278eefdde1a93efd", durationMs = 193106L, popularity = 50, artistPopularity = 50),
-        TrackEntity("20I8RduZC2PWMWTDCZuuAN", "spotify:track:20I8RduZC2PWMWTDCZuuAN", "Take Me Out", "Franz Ferdinand", "Franz Ferdinand", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273a5d1c06a8172d4861367953c", durationMs = 237026L, popularity = 50, artistPopularity = 50),
-        TrackEntity("3n3Ppam7vgaVa1iaRUc9Lp", "spotify:track:3n3Ppam7vgaVa1iaRUc9Lp", "Mr. Brightside", "The Killers", "Hot Fuss", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2739c284a6855f4945dc5a3cd73", durationMs = 222200L, popularity = 50, artistPopularity = 50),
-        TrackEntity("3twNvmDtFQtAd5gMKedhLD", "spotify:track:3twNvmDtFQtAd5gMKedhLD", "Somebody Told Me", "The Killers", "Hot Fuss", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2739c284a6855f4945dc5a3cd73", durationMs = 197280L, popularity = 50, artistPopularity = 50),
-        TrackEntity("4CeeEOM32jQcH3eN9Q2dGj", "spotify:track:4CeeEOM32jQcH3eN9Q2dGj", "Smells Like Teen Spirit", "Nirvana", "Nevermind (Remastered)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273fbc71c99f9c1296c56dd51b6", durationMs = 301920L, popularity = 50, artistPopularity = 50),
-        TrackEntity("2RsAajgo0g7bMCHxwH3Sk0", "spotify:track:2RsAajgo0g7bMCHxwH3Sk0", "Come As You Are", "Nirvana", "Nevermind (Remastered)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273fbc71c99f9c1296c56dd51b6", durationMs = 218920L, popularity = 50, artistPopularity = 50),
-        TrackEntity("63OQupATfueTdZMWTxW03A", "spotify:track:63OQupATfueTdZMWTxW03A", "Karma Police", "Radiohead", "OK Computer", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273c8b444df094279e70d0ed856", durationMs = 264066L, popularity = 50, artistPopularity = 50),
-        TrackEntity("70LcF31zb1H0PyJoS1Sx1r", "spotify:track:70LcF31zb1H0PyJoS1Sx1r", "Creep", "Radiohead", "Pablo Honey", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273ec548c00d3ac2f10be73366d", durationMs = 238640L, popularity = 50, artistPopularity = 50),
-        TrackEntity("1L94M3KIu7QluZe63g64rv", "spotify:track:1L94M3KIu7QluZe63g64rv", "Alive", "Pearl Jam", "Ten", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2732d0e5ab5bd2e234fbcffa3e0", durationMs = 340974L, popularity = 50, artistPopularity = 50),
-        TrackEntity("5Xak5fmy089t0FYmh3VJiY", "spotify:track:5Xak5fmy089t0FYmh3VJiY", "Black", "Pearl Jam", "Ten", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2732d0e5ab5bd2e234fbcffa3e0", durationMs = 342653L, popularity = 50, artistPopularity = 50),
-        TrackEntity("5qqabIl2vWzo9ApSC317sa", "spotify:track:5qqabIl2vWzo9ApSC317sa", "Wonderwall - Remastered", "Oasis", "(What's The Story) Morning Glory? [Remastered]", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27385e5dcc05cc216a10f141480", durationMs = 258773L, popularity = 50, artistPopularity = 50),
-        TrackEntity("0UvCh63URrLFcPkKt99hHd", "spotify:track:0UvCh63URrLFcPkKt99hHd", "Don't Look Back in Anger - Remastered", "Oasis", "(What's The Story) Morning Glory? [Remastered]", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27385e5dcc05cc216a10f141480", durationMs = 289560L, popularity = 50, artistPopularity = 50),
-        TrackEntity("0Ky1rnbxYY41g4H9plxK6Q", "spotify:track:0Ky1rnbxYY41g4H9plxK6Q", "Boys Don't Cry", "The Cure", "Boys Don't Cry", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27381ba7ba31f0a93041730cfb4", durationMs = 154866L, popularity = 50, artistPopularity = 50),
-        TrackEntity("4QlzkaRHtU8gAdwqjWmO8n", "spotify:track:4QlzkaRHtU8gAdwqjWmO8n", "Friday I'm In Love", "The Cure", "Wish", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2739c72b249fcaa04d074c1dfcd", durationMs = 215160L, popularity = 50, artistPopularity = 50),
-        TrackEntity("0WQiDwKJclirSYG9v5tayI", "spotify:track:0WQiDwKJclirSYG9v5tayI", "There Is a Light That Never Goes Out - 2011 Remaster", "The Smiths", "The Queen Is Dead", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2736236778a208a15eb71079601", durationMs = 244586L, popularity = 50, artistPopularity = 50),
-        TrackEntity("6hHc7Pks7wtBIW8Z6A0iFq", "spotify:track:6hHc7Pks7wtBIW8Z6A0iFq", "Blue Monday", "New Order", "Substance", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273408739ba1ad5bccbfeda5ae1", durationMs = 449160L, popularity = 50, artistPopularity = 50),
-        TrackEntity("0yp3TvJNlG50Q4tAHWNCRm", "spotify:track:0yp3TvJNlG50Q4tAHWNCRm", "Enjoy the Silence", "Depeche Mode", "Violator | The 12\" Singles", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273972ac79d249efed1c7b2c8c1", durationMs = 257630L, popularity = 50, artistPopularity = 50),
-        TrackEntity("2YiCMmONQcoMPX2bV1LxE0", "spotify:track:2YiCMmONQcoMPX2bV1LxE0", "Everybody Wants To Rule The World", "Tears For Fears", "Songs From The Big Chair", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2735e12c35cb4c848a927ef4b69", durationMs = 251480L, popularity = 50, artistPopularity = 50),
-        TrackEntity("2WfaOiMkCvy7F5fcp2zZ8L", "spotify:track:2WfaOiMkCvy7F5fcp2zZ8L", "Take on Me", "a-ha", "Hunting High and Low", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273e8dd4db47e7177c63b0b7d53", durationMs = 225280L, popularity = 50, artistPopularity = 50),
-        TrackEntity("6mFkJmJqdDVQ1REhVfGgd1", "spotify:track:6mFkJmJqdDVQ1REhVfGgd1", "Wish You Were Here", "Pink Floyd", "Wish You Were Here", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273828e52cfb7bf22869349799e", durationMs = 338466L, popularity = 50, artistPopularity = 50),
-        TrackEntity("5HNCy40Ni5BZJFw1TKzRsC", "spotify:track:5HNCy40Ni5BZJFw1TKzRsC", "Comfortably Numb", "Pink Floyd", "The Wall", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273b694e89ba937dd2631ff584c", durationMs = 382280L, popularity = 50, artistPopularity = 50),
-        TrackEntity("2EqlS6tkEnglzr7tkKAAYD", "spotify:track:2EqlS6tkEnglzr7tkKAAYD", "Come Together - Remastered 2009", "The Beatles", "Abbey Road (Remastered)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273dc30583ba717007b00cceb25", durationMs = 259946L, popularity = 50, artistPopularity = 50),
-        TrackEntity("6dGnYIeXmHdcikdzNNDMm2", "spotify:track:6dGnYIeXmHdcikdzNNDMm2", "Here Comes The Sun - Remastered 2009", "The Beatles", "Abbey Road (Remastered)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273dc30583ba717007b00cceb25", durationMs = 185733L, popularity = 50, artistPopularity = 50),
-        TrackEntity("1RJeiAIwR9pZBgJA8ndZLL", "spotify:track:1RJeiAIwR9pZBgJA8ndZLL", "Paint It, Black - Mono", "The Rolling Stones", "The Rolling Stones In Mono (Remastered 2016)", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2738d1570a03b9354518f0b618b", durationMs = 204480L, popularity = 50, artistPopularity = 50),
-        TrackEntity("08mG3Y1vljYA6bvDt4Wqkj", "spotify:track:08mG3Y1vljYA6bvDt4Wqkj", "Back In Black", "AC/DC", "Back In Black", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273ff191d7fbdb5a13eaf84132b", durationMs = 256000L, popularity = 50, artistPopularity = 50),
-        TrackEntity("2zYzyRzz6pRmhPzyfMEC8s", "spotify:track:2zYzyRzz6pRmhPzyfMEC8s", "Highway to Hell", "AC/DC", "Highway to Hell", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27343058ea096fa35ac33c43587", durationMs = 208110L, popularity = 50, artistPopularity = 50),
-        TrackEntity("7snQQk1zcKl8gZ92AnueZW", "spotify:track:7snQQk1zcKl8gZ92AnueZW", "Sweet Child O' Mine", "Guns N' Roses", "Appetite For Destruction", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27321ebf49b3292c3f0f575f0f5", durationMs = 356066L, popularity = 50, artistPopularity = 50),
-        TrackEntity("4U3Ggqyv2XgnS1u82HOGQX", "spotify:track:4U3Ggqyv2XgnS1u82HOGQX", "Every Breath You Take", "The Police", "The Very Best Of Sting And The Police", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273cf390065f5a3336f12143e16", durationMs = 251333L, popularity = 50, artistPopularity = 50),
-        TrackEntity("7J1uxwnxfQLu4APicE5Rnj", "spotify:track:7J1uxwnxfQLu4APicE5Rnj", "Billie Jean", "Michael Jackson", "Thriller", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27332a7d87248d1b75463483df5", durationMs = 293802L, popularity = 50, artistPopularity = 50),
-        TrackEntity("1OOtq8tRnDM8kG2gqUPjAj", "spotify:track:1OOtq8tRnDM8kG2gqUPjAj", "Beat It", "Michael Jackson", "Thriller 25 Super Deluxe Edition", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2734121faee8df82c526cbab2be", durationMs = 258040L, popularity = 50, artistPopularity = 50),
-        TrackEntity("1uvyZBs4IZYRebHIB1747m", "spotify:track:1uvyZBs4IZYRebHIB1747m", "Purple Rain", "Prince", "Purple Rain", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2738a2ce3f148f57584269c3782", durationMs = 521866L, popularity = 50, artistPopularity = 50),
-        TrackEntity("1ujxjsoNvh4XgS2fUNwkZ2", "spotify:track:1ujxjsoNvh4XgS2fUNwkZ2", "Space Song", "Beach House", "Depression Cherry", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27302859310b61e59756abb90ad", durationMs = 320466L, popularity = 40, artistPopularity = 40, isHiddenGem = true, hiddenGemType = "track"),
-        TrackEntity("1Snko28yJOihcRVXs9dAo9", "spotify:track:1Snko28yJOihcRVXs9dAo9", "Chamber Of Reflection", "Mac DeMarco", "Salad Days", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2738b221f2ccf777ae0d4b0db50", durationMs = 231723L, popularity = 40, artistPopularity = 40, isHiddenGem = true, hiddenGemType = "track"),
-        TrackEntity("3z6CZiS2I89YQ2N0FMtGlG", "spotify:track:3z6CZiS2I89YQ2N0FMtGlG", "El Mundo Extraño", "El Mató a un Policía Motorizado", "La Sintesis O'Konor", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273b952b049193b56a4dc5c449b", durationMs = 238311L, popularity = 40, artistPopularity = 40, isHiddenGem = true, hiddenGemType = "track"),
-        TrackEntity("4zdEcOj9IEAE1cWG7zzYxB", "spotify:track:4zdEcOj9IEAE1cWG7zzYxB", "A 1200 Km", "Las Ligas Menores", "Las Ligas Menores", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27304364593fe145a2068fbfa64", durationMs = 229842L, popularity = 40, artistPopularity = 40, isHiddenGem = true, hiddenGemType = "both"),
-        TrackEntity("1tyI6Sq6oBLsMmIgvBfQrI", "spotify:track:1tyI6Sq6oBLsMmIgvBfQrI", "Vámonos De Viaje", "Bandalos Chinos", "BACH", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b2736287160ee04a0f09669354d8", durationMs = 236160L, popularity = 40, artistPopularity = 40, isHiddenGem = true, hiddenGemType = "track"),
-        TrackEntity("0fQbLONJQqFSePMz1I4UNT", "spotify:track:0fQbLONJQqFSePMz1I4UNT", "Cabildo y Juramento", "Conociendo Rusia", "Cabildo y Juramento", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273b760d33bf5c940e64dccf56e", durationMs = 203826L, popularity = 40, artistPopularity = 40, isHiddenGem = true, hiddenGemType = "track"),
-        TrackEntity("3WRQUvzRvBDr4AxMWhXc5E", "spotify:track:3WRQUvzRvBDr4AxMWhXc5E", "Sunset Lover", "Petit Biscuit", "Presence", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b27344bb39545f5d7176080d17ae", durationMs = 238906L, popularity = 40, artistPopularity = 40, isHiddenGem = true, hiddenGemType = "both"),
-        TrackEntity("2aDk1KkyB7ieSwwEDXCHJg", "spotify:track:2aDk1KkyB7ieSwwEDXCHJg", "The Mind Electric", "Miracle Musical", "Hawaii: Part II", albumArtUrl = "https://i.scdn.co/image/ab67616d0000b273b3d0bf02a5fb2f676c748432", durationMs = 373359L, popularity = 40, artistPopularity = 40, isHiddenGem = true, hiddenGemType = "both"),
-    )
+
 
     fun setSubTab(index: Int) {
         _uiState.update { it.copy(activeSubTab = index) }
@@ -299,7 +195,7 @@ class DiscoverViewModel(
                             .thenBy { it.lowercase() }
                     )
                     .take(4)
-                val trackMatches = (localTracks.map { it.title } + masterCatalog.map { it.title })
+                val trackMatches = localTracks.map { it.title }
                     .distinct()
                     .filter { SearchUtils.fuzzyMatches(trimmed, it) }
                     .sortedWith(
@@ -339,14 +235,9 @@ class DiscoverViewModel(
             if (!token.isNullOrBlank() && cloudService != null && query.isNotBlank()) {
                 try {
                     val cleanQuery = YtmCloudService.sanitizeQuery(query)
-                    val spotifyQuery = when (state.catalogSearchType) {
-                        CatalogSearchType.ALL -> cleanQuery
-                        CatalogSearchType.ARTIST -> "artist:\"$cleanQuery\""
-                        CatalogSearchType.TRACK -> "track:\"$cleanQuery\""
-                        CatalogSearchType.LYRICS -> cleanQuery
-                    }
+                    val searchQuery = cleanQuery
                     for (offset in listOf(0, 10, 20)) {
-                        val cloudResults = cloudService.searchTracks(token, spotifyQuery, limit = 10, offset = offset)
+                        val cloudResults = cloudService.searchTracks(token, searchQuery, limit = 10, offset = offset)
                         for (t in cloudResults) {
                             if (seenIds.add(t.id)) {
                                 candidates.add(t)
@@ -385,7 +276,7 @@ class DiscoverViewModel(
 
             // 2. Query Local Library & Master Catalog
             val localTracks = withContext(Dispatchers.IO) { repository.getAllTracksSync() }
-            for (t in (localTracks + masterCatalog)) {
+            for (t in localTracks) {
                 if (seenIds.add(t.id)) {
                     candidates.add(t)
                 }
@@ -563,10 +454,7 @@ class DiscoverViewModel(
             val localMatches = repository.getAllTracksSync().filter {
                 SearchUtils.fuzzyMatches(trimmed, it.title) || SearchUtils.fuzzyMatches(trimmed, it.artist)
             }
-            val catalogMatches = masterCatalog.filter {
-                SearchUtils.fuzzyMatches(trimmed, it.title) || SearchUtils.fuzzyMatches(trimmed, it.artist)
-            }
-            val combined = (localMatches + catalogMatches)
+            val combined = localMatches
                 .distinctBy { "${SearchUtils.normalize(it.title)}-${SearchUtils.normalize(it.artist)}" }
                 .sortedWith(
                     compareBy<TrackEntity> { track ->
@@ -838,6 +726,8 @@ class DiscoverViewModel(
             val visitedArtists = mutableSetOf<String>()
             for (a in excludedArtists) visitedArtists.add(a.lowercase().trim())
 
+            val targetBuffer = targetCount * 2
+
             withContext(Dispatchers.IO) {
                 if (!token.isNullOrBlank() && cloudService != null) {
                     coroutineScope {
@@ -946,109 +836,73 @@ class DiscoverViewModel(
                             }
                         }
 
-                        // Target candidate buffer to ensure enough variety for capping and anti-clumping
-                        val targetBuffer = targetCount * 2
                         val seedArtists = if (includedArtists.isNotEmpty()) {
                             includedArtists
                         } else {
                             candidates.map { it.artist }.distinct().take(6)
                         }
 
-                        // --- TIER 1 (Priority 1): Artist Genres Discovery ---
-                        // Fetch genuine YouTube Music genres from the Artist Profile and query matching genre tracks
-                        if (candidates.size < targetBuffer && seedArtists.isNotEmpty()) {
-                            val artistGenres = mutableListOf<String>()
-                            for (seed in seedArtists) {
-                                try {
-                                    val genres = cloudService.fetchArtistGenres(token, seed)
-                                    for (g in genres) {
-                                        val cleanG = YtmCloudService.sanitizeQuery(g).trim()
-                                        if (cleanG.isNotBlank() && !artistGenres.contains(cleanG)) {
-                                            val normG = cleanG.lowercase()
-                                            if (!excludedGenres.any { it.equals(normG, ignoreCase = true) || SearchUtils.fuzzyMatches(it, normG) }) {
-                                                artistGenres.add(cleanG)
-                                            }
-                                        }
-                                    }
-                                } catch (_: Exception) {}
+                        // --- TIER 1 (Priority 1): YouTube Music Radio Automix ---
+                        // For the seed tracks or top candidates, fetch YouTube Music's algorithmic radio queue
+                        if (candidates.size < targetBuffer) {
+                            val seedTrackIds = mutableListOf<String>()
+                            for (c in candidates.take(4)) {
+                                if (c.id.length == 11 && !seedTrackIds.contains(c.id)) {
+                                    seedTrackIds.add(c.id)
+                                }
                             }
-
-                            android.util.Log.d("DiscoverVM", "Discovered Tier-1 artist genres: $artistGenres")
-
-                            if (artistGenres.isNotEmpty()) {
-                                val genreJobs = mutableListOf<kotlinx.coroutines.Deferred<List<TrackEntity>>>()
-                                for (g in artistGenres.take(4)) {
-                                    for (offset in listOf(0, 10, 20)) {
-                                        genreJobs.add(async {
-                                            try {
-                                                cloudService.searchTracks(token, "genre:\"$g\"", limit = 10, offset = offset)
-                                            } catch (_: Exception) { emptyList() }
-                                        })
+                            if (seedTrackIds.isNotEmpty()) {
+                                android.util.Log.d("DiscoverVM", "Fetching Radio Automix for seeds: $seedTrackIds")
+                                val radioJobs = seedTrackIds.map { vid ->
+                                    async {
+                                        try {
+                                            cloudService.getRadioTracks(vid)
+                                        } catch (_: Exception) { emptyList() }
                                     }
                                 }
-                                val genreTracks = genreJobs.awaitAll().flatten()
-                                genreTracks.forEach { addCandidate(it) }
+                                val radioTracks = radioJobs.awaitAll().flatten()
+                                radioTracks.forEach { addCandidate(it) }
                             }
                         }
 
-                        // --- TIER 2 (Priority 2): Co-Artists & Collaborators ---
-                        // Harvest tracks from direct musical collaborators discovered on seed tracks
+                        // --- TIER 2 (Priority 2): Thematic & Artist Mix Search ---
+                        if (candidates.size < targetBuffer && seedArtists.isNotEmpty()) {
+                            val mixJobs = mutableListOf<kotlinx.coroutines.Deferred<List<TrackEntity>>>()
+                            for (seed in seedArtists.take(4)) {
+                                val cleanSeed = YtmCloudService.sanitizeQuery(seed)
+                                listOf("$cleanSeed mix", "$cleanSeed radio").forEach { query ->
+                                    mixJobs.add(async {
+                                        try {
+                                            cloudService.searchTracks(token, query, limit = 15)
+                                        } catch (_: Exception) { emptyList() }
+                                    })
+                                }
+                            }
+                            val mixTracks = mixJobs.awaitAll().flatten()
+                            mixTracks.forEach { addCandidate(it) }
+                        }
+
+                        // --- TIER 3 (Priority 3): Co-Artists & Collaborators ---
                         if (candidates.size < targetBuffer && discoveredCollaborators.isNotEmpty()) {
                             val collabList = discoveredCollaborators
                                 .filter { visitedArtists.add(it.lowercase().trim()) }
-                                .take(8)
-
-                            android.util.Log.d("DiscoverVM", "Harvesting Tier-2 collaborators: $collabList")
-
-                            val collabJobs = mutableListOf<kotlinx.coroutines.Deferred<List<TrackEntity>>>()
-                            for (collab in collabList) {
-                                val cleanCollab = YtmCloudService.sanitizeQuery(collab)
-                                for (offset in listOf(0, 10, 20)) {
-                                    collabJobs.add(async {
-                                        try {
-                                            cloudService.searchTracks(token, "artist:\"$cleanCollab\"", limit = 10, offset = offset)
-                                        } catch (_: Exception) { emptyList() }
-                                    })
+                                .take(6)
+                            val collabJobs = collabList.map { collab ->
+                                async {
+                                    try {
+                                        cloudService.searchTracks(token, collab, limit = 10)
+                                    } catch (_: Exception) { emptyList() }
                                 }
                             }
                             val collabTracks = collabJobs.awaitAll().flatten()
                             collabTracks.forEach { addCandidate(it) }
                         }
-
-                        // --- TIER 3 (Priority 3): Curated Thematic Playlists ---
-                        // Search public/curated playlists containing the seed artist and harvest sample tracks
-                        if (candidates.size < targetBuffer && seedArtists.isNotEmpty()) {
-                            val playlistIds = mutableListOf<String>()
-                            for (seed in seedArtists) {
-                                try {
-                                    val pIds = cloudService.searchPlaylists(token, seed, limit = 4)
-                                    for (pid in pIds) {
-                                        if (!playlistIds.contains(pid)) {
-                                            playlistIds.add(pid)
-                                        }
-                                    }
-                                } catch (_: Exception) {}
-                            }
-
-                            android.util.Log.d("DiscoverVM", "Harvesting Tier-3 playlists: ${playlistIds.size} playlists")
-
-                            val playlistJobs = mutableListOf<kotlinx.coroutines.Deferred<List<TrackEntity>>>()
-                            for (pid in playlistIds.take(4)) {
-                                playlistJobs.add(async {
-                                    try {
-                                        cloudService.fetchPlaylistSampleTracks(token, pid, limit = 25)
-                                    } catch (_: Exception) { emptyList() }
-                                })
-                            }
-                            val playlistTracks = playlistJobs.awaitAll().flatten()
-                            playlistTracks.forEach { addCandidate(it) }
-                        }
                     }
                 }
             }
 
-            // 4. Dynamic YouTube Music additions (all pass through addCandidate which respects library exclusion)
-            if (!hasPositiveSeeds) {
+            // 4. Dynamic YouTube Music additions to fill quota
+            if (candidates.size < targetBuffer) {
                 val seedQueries = if (libraryTracks.isNotEmpty()) {
                     libraryTracks.map { it.artist }.distinct().shuffled().take(4)
                 } else {
@@ -1056,7 +910,7 @@ class DiscoverViewModel(
                 }
                 for (seed in seedQueries) {
                     try {
-                        val tracks = cloudService?.searchCatalog(seed) ?: emptyList()
+                        val tracks = cloudService?.searchCatalog("$seed mix") ?: emptyList()
                         tracks.forEach { addCandidate(it) }
                     } catch (_: Exception) {}
                 }
