@@ -276,6 +276,82 @@ class InnertubeClient(
         }
     }
 
+    data class StreamInfo(
+        val streamUrl: String,
+        val loudnessDb: Double = 0.0,
+        val durationMs: Long = 0L,
+        val bitrate: Int = 0
+    )
+
+    suspend fun getStreamInfo(videoId: String): StreamInfo? {
+        try {
+            val payload = buildJsonObject {
+                putJsonObject("context") {
+                    putJsonObject("client") {
+                        put("clientName", "ANDROID_MUSIC")
+                        put("clientVersion", "6.41.52")
+                        put("androidSdkVersion", 34)
+                        put("hl", "en")
+                        put("gl", "US")
+                    }
+                }
+                put("videoId", videoId)
+            }
+
+            val responseText = client.post("https://music.youtube.com/youtubei/v1/player?alt=json") {
+                contentType(ContentType.Application.Json)
+                header("User-Agent", "com.google.android.apps.youtube.music/6.41.52 (Linux; U; Android 14; US) gzip")
+                if (cookieString.isNotEmpty()) {
+                    header("Cookie", cookieString)
+                }
+                if (sapisid.isNotEmpty()) {
+                    header("Authorization", InnertubeAuth.generateSapisidHashHeader(sapisid))
+                    header("X-Origin", "https://music.youtube.com")
+                }
+                setBody(payload)
+            }.bodyAsText()
+
+            val root = JsonParser.parseString(responseText).asJsonObject
+            val streamingData = root.getAsJsonObject("streamingData") ?: return null
+            val formats = streamingData.getAsJsonArray("adaptiveFormats") ?: streamingData.getAsJsonArray("formats") ?: return null
+            
+            var bestUrl: String? = null
+            var bestBitrate = 0
+            var loudness = 0.0
+            
+            root.getAsJsonObject("playerConfig")?.getAsJsonObject("audioConfig")?.get("loudnessDb")?.let {
+                loudness = it.asDouble
+            }
+
+            for (fmt in formats) {
+                val fObj = fmt.asJsonObject
+                val mime = fObj.get("mimeType")?.asString ?: ""
+                if (mime.startsWith("audio/")) {
+                    val bitrate = fObj.get("bitrate")?.asInt ?: 0
+                    val url = fObj.get("url")?.asString
+                    if (!url.isNullOrEmpty() && bitrate > bestBitrate) {
+                        bestBitrate = bitrate
+                        bestUrl = url
+                        if (fObj.has("loudnessDb")) {
+                            loudness = fObj.get("loudnessDb").asDouble
+                        }
+                    }
+                }
+            }
+
+            return bestUrl?.let {
+                StreamInfo(
+                    streamUrl = it,
+                    loudnessDb = loudness,
+                    bitrate = bestBitrate
+                )
+            }
+        } catch (e: Exception) {
+            System.err.println("Error fetching stream info for $videoId: ${e.message}")
+            return null
+        }
+    }
+
     // Endpoint for getting queue streams and radio tracks
     suspend fun next(videoId: String, playlistId: String? = null): KxJsonObject {
         val payload = buildJsonObject {
@@ -609,7 +685,7 @@ class InnertubeClient(
             // Fallback: Query liked videos with Music Category (categoryId = 10)
             var pageToken: String? = null
             var fetchedCount = 0
-            val maxFetch = 250
+            val maxFetch = 2500
 
             do {
                 val url = "https://www.googleapis.com/youtube/v3/videos?myRating=like&part=snippet,contentDetails&maxResults=50" +
@@ -703,7 +779,7 @@ class InnertubeClient(
             val cleanId = if (playlistId.startsWith("VL")) playlistId.removePrefix("VL") else playlistId
             var pageToken: String? = null
             var fetchedCount = 0
-            val maxFetch = 500
+            val maxFetch = 5000
 
             do {
                 val url = "https://www.googleapis.com/youtube/v3/playlistItems?playlistId=$cleanId&part=snippet,contentDetails&maxResults=50" +
@@ -713,6 +789,13 @@ class InnertubeClient(
                 }.bodyAsText()
 
                 val root = JsonParser.parseString(respStr).asJsonObject
+                if (root.has("error")) {
+                    val err = root.getAsJsonObject("error")
+                    val msg = err?.get("message")?.asString ?: "Unknown"
+                    val code = err?.get("code")?.asInt ?: 0
+                    System.err.println("YouTube Data API error ($code) for playlist $cleanId: $msg")
+                    break
+                }
                 val items = root.getAsJsonArray("items") ?: break
                 val pageTracks = mutableListOf<Track>()
                 val videoIds = mutableListOf<String>()

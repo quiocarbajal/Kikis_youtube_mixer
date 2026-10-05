@@ -454,7 +454,20 @@ class DiscoverViewModel(
                 .flatMap { SearchUtils.splitArtists(it) }
                 .filter { SearchUtils.fuzzyMatches(trimmed, it) }
                 .distinct()
-            val combined = (catalogArtists + localArtists)
+            val combined = (localArtists + catalogArtists).distinct()
+            val remoteArtists = if (combined.size < 5 && cloudService != null && trimmed.length >= 2) {
+                try {
+                    val tracks = cloudService.searchCatalog(trimmed)
+                    tracks.flatMap { SearchUtils.splitArtists(it.artist) }
+                        .filter { SearchUtils.fuzzyMatches(trimmed, it) }
+                        .distinct()
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            } else {
+                emptyList()
+            }
+            val finalCombined = (combined + remoteArtists)
                 .distinct()
                 .sortedWith(
                     compareBy<String> { SearchUtils.matchScore(trimmed, it) }
@@ -462,8 +475,8 @@ class DiscoverViewModel(
                 )
                 .take(10)
             withContext(Dispatchers.Main) {
-                android.util.Log.d("DiscoverVM", "setArtistInputText: trimmed='$trimmed', found=${combined.size}: $combined")
-                _uiState.update { it.copy(suggestedArtists = combined) }
+                android.util.Log.d("DiscoverVM", "setArtistInputText: trimmed='$trimmed', found=${finalCombined.size}: $finalCombined")
+                _uiState.update { it.copy(suggestedArtists = finalCombined) }
             }
         }
     }
@@ -740,8 +753,8 @@ class DiscoverViewModel(
             }
 
             fun isAllowedCandidate(track: TrackEntity): Boolean {
-                // Strictly enforce valid YouTube Music track format: must start with spotify:track: and have valid ID length
-                if (!track.uri.startsWith("spotify:track:") || track.id.length < 15) return false
+                // Validate YouTube Music track: must have non-blank ID
+                if (track.id.isBlank()) return false
 
                 // Strictly enforce Library Exclusion: zero library tracks admitted when enabled
                 if (state.excludeLibrarySongs) {
@@ -1034,16 +1047,18 @@ class DiscoverViewModel(
                 }
             }
 
-            // 4. Master catalog additions (all pass through addCandidate which respects library exclusion)
+            // 4. Dynamic YouTube Music additions (all pass through addCandidate which respects library exclusion)
             if (!hasPositiveSeeds) {
-                masterCatalog.forEach { addCandidate(it) }
-            } else {
-                for (catTrack in masterCatalog) {
-                    val matchesArtist = includedArtists.any { SearchUtils.fuzzyMatches(it, catTrack.artist) }
-                    val matchesGenre = includedGenres.any { SearchUtils.fuzzyMatches(it, catTrack.album) }
-                    if (matchesArtist || matchesGenre) {
-                        addCandidate(catTrack)
-                    }
+                val seedQueries = if (libraryTracks.isNotEmpty()) {
+                    libraryTracks.map { it.artist }.distinct().shuffled().take(4)
+                } else {
+                    listOf("Rock", "Pop", "Indie", "Alternative")
+                }
+                for (seed in seedQueries) {
+                    try {
+                        val tracks = cloudService?.searchCatalog(seed) ?: emptyList()
+                        tracks.forEach { addCandidate(it) }
+                    } catch (_: Exception) {}
                 }
             }
 

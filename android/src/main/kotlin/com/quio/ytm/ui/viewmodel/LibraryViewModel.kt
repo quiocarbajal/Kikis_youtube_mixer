@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.quio.ytm.auth.AndroidOAuthManager
 import java.io.File
 
 data class LibraryUiState(
@@ -39,7 +40,8 @@ data class LibraryUiState(
 class LibraryViewModel(
     private val repository: YtmMixerRepository,
     private val cloudService: YtmCloudService? = null,
-    private val backupManager: LibraryBackupManager? = null
+    private val backupManager: LibraryBackupManager? = null,
+    private val oauthManager: AndroidOAuthManager? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LibraryUiState())
@@ -82,7 +84,8 @@ class LibraryViewModel(
 
     init {
         viewModelScope.launch {
-            val savedToken = repository.getSetting("spotify_access_token")
+            val savedToken = repository.getSetting("ytm_access_token")
+                ?: repository.getSetting("spotify_access_token")
             if (!savedToken.isNullOrBlank()) {
                 accessToken = savedToken
                 _uiState.update { it.copy(isLoggedIn = true) }
@@ -92,19 +95,33 @@ class LibraryViewModel(
 
     fun setAccessToken(token: String) {
         accessToken = token
+        viewModelScope.launch {
+            repository.setSetting("ytm_access_token", token)
+        }
         _uiState.update { it.copy(isLoggedIn = true) }
     }
 
     private suspend fun getValidAccessToken(): String? {
-        return accessToken ?: "ytm_token"
+        val valid = oauthManager?.getValidAccessToken()
+        if (!valid.isNullOrBlank()) {
+            accessToken = valid
+            return valid
+        }
+        val stored = repository.getSetting("ytm_access_token")
+        if (!stored.isNullOrBlank()) {
+            accessToken = stored
+            return stored
+        }
+        return accessToken
     }
 
     fun logout() {
         accessToken = null
         viewModelScope.launch {
+            repository.setSetting("ytm_access_token", "")
+            repository.setSetting("ytm_refresh_token", "")
             repository.setSetting("spotify_access_token", "")
             repository.setSetting("spotify_refresh_token", "")
-            repository.setSetting("spotify_token_expires_at", "")
             _uiState.update { it.copy(isLoggedIn = false) }
         }
     }

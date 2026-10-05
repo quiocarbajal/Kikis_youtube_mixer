@@ -37,6 +37,9 @@ interface PlaylistTrackDao {
     @Query("SELECT track_id FROM playlist_tracks WHERE playlist_id = 'liked_songs'")
     fun getLikedTrackIdsFlow(): kotlinx.coroutines.flow.Flow<List<String>>
 
+    @Query("SELECT track_id FROM playlist_tracks WHERE playlist_id = 'liked_songs'")
+    suspend fun getLikedTrackIdsSync(): List<String>
+
     @Transaction
     suspend fun setPlaylistTracks(playlistId: String, trackIds: List<String>) {
         deleteTracksForPlaylist(playlistId)

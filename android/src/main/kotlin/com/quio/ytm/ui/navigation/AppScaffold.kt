@@ -44,12 +44,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 
 
 import com.quio.ytm.ui.player.ExpandedPlayerSheet
@@ -161,13 +163,27 @@ fun AppScaffold(
         }
     }
 
-    if (!libraryState.isLoggedIn) {
-        LoginPromptScreen(
-            onLoginClick = onConnectYouTubeMusic,
-            onSettingsClick = { isSettingsOpen = true }
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Invisible WebView audio engine host (keeps WebView attached to Window with >=200px viewport)
+        AndroidView(
+            factory = { ctx ->
+                playerViewModel.audioPlayer?.getOrCreateWebView(ctx)?.apply {
+                    isClickable = false
+                    isFocusable = false
+                } ?: android.view.View(ctx)
+            },
+            modifier = Modifier
+                .size(240.dp)
+                .alpha(0.005f)
         )
-    } else {
-        Scaffold(
+
+        if (!libraryState.isLoggedIn) {
+            LoginPromptScreen(
+                onLoginClick = onConnectYouTubeMusic,
+                onSettingsClick = { isSettingsOpen = true }
+            )
+        } else {
+            Scaffold(
             topBar = {
             TopAppBar(
                 title = {
@@ -338,7 +354,7 @@ fun AppScaffold(
                         selectedTab = 0 // Auto-switch to Queue tab to see loaded tracks
                     },
                     onAppendPlaylistToQueue = { playlist ->
-                        // Append playlist logic
+                        queueViewModel.appendPlaylistToQueue(playlist.id, playlist.name)
                     }
                 )
                 2 -> DiscoverScreen(
@@ -487,4 +503,5 @@ fun AppScaffold(
             onDismiss = { isBlacklistDialogOpen = false }
         )
     }
+}
 }

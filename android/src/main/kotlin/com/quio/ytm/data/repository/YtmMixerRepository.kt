@@ -61,7 +61,7 @@ class YtmMixerRepository(private val db: AppDatabase) {
      * Strict safety rule: Never unlikes or deletes tracks from liked songs.
      */
     suspend fun saveTrackToLiked(track: TrackEntity) = withContext(Dispatchers.IO) {
-        trackDao.upsertTracks(listOf(track))
+        trackDao.upsertTrack(track.copy(isLiked = true))
         if (!playlistTrackDao.isTrackInLiked(track.id)) {
             if (playlistDao.getPlaylistById("liked_songs") == null) {
                 playlistDao.upsertPlaylist(
@@ -84,6 +84,9 @@ class YtmMixerRepository(private val db: AppDatabase) {
             playlistTrackDao.deleteTrackFromPlaylist("liked_songs", trackId)
             val currentCount = playlistDao.getPlaylistById("liked_songs")?.totalTracks ?: 1
             playlistDao.updateTrackCount("liked_songs", (currentCount - 1).coerceAtLeast(0))
+            trackDao.getTrackById(trackId)?.let { track ->
+                trackDao.upsertTrack(track.copy(isLiked = false))
+            }
         }
     }
 
@@ -116,11 +119,28 @@ class YtmMixerRepository(private val db: AppDatabase) {
 
     suspend fun upsertTracks(tracks: List<TrackEntity>) =
         withContext(Dispatchers.IO) {
-            trackDao.upsertTracks(tracks)
+            val likedIds = playlistTrackDao.getLikedTrackIdsSync().toHashSet()
+            val adjusted = if (likedIds.isNotEmpty()) {
+                tracks.map { track ->
+                    if (!track.isLiked && likedIds.contains(track.id)) {
+                        track.copy(isLiked = true)
+                    } else {
+                        track
+                    }
+                }
+            } else {
+                tracks
+            }
+            trackDao.upsertTracks(adjusted)
         }
 
     // --- Playlists ---
     val allPlaylists: Flow<List<PlaylistEntity>> = playlistDao.getAllPlaylists()
+
+    suspend fun getAllPlaylistsSync(): List<PlaylistEntity> =
+        withContext(Dispatchers.IO) {
+            playlistDao.getAllPlaylistsSync()
+        }
 
     suspend fun getPlaylistById(playlistId: String): PlaylistEntity? =
         withContext(Dispatchers.IO) {

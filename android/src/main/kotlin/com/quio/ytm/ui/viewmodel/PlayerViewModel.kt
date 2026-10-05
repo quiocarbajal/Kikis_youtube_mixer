@@ -6,6 +6,8 @@ import com.quio.ytm.service.KikiPlaybackService
 import com.quio.ytm.data.repository.YtmMixerRepository
 import com.quio.ytm.data.remote.YtmCloudService
 
+import com.quio.ytm.audio.AndroidAudioPlayer
+import com.quio.ytm.data.local.entity.toDomain
 import com.quio.ytm.data.local.entity.TrackEntity
 
 import android.app.AlarmManager
@@ -48,7 +50,8 @@ data class PlayerUiState(
 
 class PlayerViewModel(
     private val repository: YtmMixerRepository? = null,
-    private val cloudService: YtmCloudService? = null
+    private val cloudService: YtmCloudService? = null,
+    val audioPlayer: AndroidAudioPlayer? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PlayerUiState())
@@ -78,11 +81,59 @@ class PlayerViewModel(
     private var pendingTransitionIntent: PendingIntent? = null
     private var isUserPaused = false
 
+    private var consecutiveErrorCount = 0
+    private var lastErrorTimeMs = 0L
+
     fun setApplicationContext(context: Context) {
         applicationContext = context.applicationContext
     }
 
     init {
+        audioPlayer?.onStateChangedListener = { state, durationSec ->
+            viewModelScope.launch(Dispatchers.Main) {
+                if (state == 1) { // PLAYING
+                    consecutiveErrorCount = 0
+                    _uiState.update { current ->
+                        current.copy(
+                            isPlaying = true,
+                            durationMs = if (durationSec > 0) (durationSec * 1000).toLong() else current.durationMs
+                        )
+                    }
+                    startProgressTicker()
+                } else if (state == 2) { // PAUSED
+                    _uiState.update { it.copy(isPlaying = false) }
+                    stopProgressTicker()
+                } else if (state == 0) { // ENDED
+                    android.util.Log.d("PlayerViewModel", "YouTube player track finished. Triggering next track!")
+                    triggerTrackEndTransition(_uiState.value.currentTrack?.id)
+                }
+            }
+        }
+
+        audioPlayer?.onErrorListener = { code ->
+            val currentId = _uiState.value.currentTrack?.id
+            android.util.Log.e("PlayerViewModel", "YouTube player error code $code for track: $currentId")
+            if (currentId != null && _uiState.value.isPlaying) {
+                val now = System.currentTimeMillis()
+                if (now - lastErrorTimeMs < 3000L) {
+                    consecutiveErrorCount++
+                } else {
+                    consecutiveErrorCount = 1
+                }
+                lastErrorTimeMs = now
+
+                if (consecutiveErrorCount >= 4) {
+                    android.util.Log.e("PlayerViewModel", "Too many consecutive playback errors ($consecutiveErrorCount). Pausing queue to prevent infinite skipping.")
+                    _uiState.update { it.copy(isPlaying = false) }
+                    stopProgressTicker()
+                } else {
+                    viewModelScope.launch(Dispatchers.Main) {
+                        kotlinx.coroutines.delay(1000L)
+                        triggerTrackEndTransition(currentId)
+                    }
+                }
+            }
+        }
         startPlaybackStatePolling()
         repository?.let { repo ->
             viewModelScope.launch {
@@ -128,88 +179,49 @@ class PlayerViewModel(
         pendingTrackId = track.id
         pendingTrackTimeMs = System.currentTimeMillis()
 
-        // Optimistically update track metadata, but do NOT pretend it's playing until confirmed
+        // Optimistically update track metadata
         val isLiked = cachedLikedSet.contains(track.id)
         _uiState.update {
             it.copy(
                 currentTrack = track,
                 progressMs = startPos,
                 durationMs = duration,
-                isLiked = isLiked
+                isLiked = isLiked,
+                isPlaying = true
+            )
+        }
+
+        startProgressTicker()
+        applicationContext?.let { ctx ->
+            KikiPlaybackService.startOrUpdate(
+                context = ctx,
+                title = track.title,
+                artist = track.artist,
+                isPlaying = true,
+                trackId = track.id
             )
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            var token = getValidAccessToken()
-            if (token.isNullOrBlank() || cloudService == null) {
+            repository?.recordPlayback(track.id)
+
+            // 1. Play locally via AndroidAudioPlayer (YouTube Audio Engine)
+            if (audioPlayer != null) {
+                val domainTrack = track.toDomain()
                 withContext(Dispatchers.Main) {
-                    pendingTrackId = null
-                    _uiState.update { it.copy(isPlaying = false) }
+                    audioPlayer.play(domainTrack, "")
+                    if (startPos > 0L) {
+                        audioPlayer.seekTo(startPos)
+                    }
                 }
                 return@launch
             }
 
-            var result = cloudService.playTrackUri(token, track.uri)
-            if (result is PlaybackResult.Unauthorized) {
-                token = getValidAccessToken(forceRefresh = true)
-                if (!token.isNullOrBlank()) {
-                    result = cloudService.playTrackUri(token, track.uri)
-                }
+            // 2. Fallback / Cloud Connect path
+            val token = getValidAccessToken()
+            if (!token.isNullOrBlank() && cloudService != null) {
+                cloudService.playTrackUri(token, track.uri)
             }
-
-            withContext(Dispatchers.Main) {
-                when (result) {
-                    is PlaybackResult.Success -> {
-                        _uiState.update {
-                            it.copy(
-                                isPlaying = true,
-                                progressMs = startPos,
-                                durationMs = duration
-                            )
-                        }
-                        startProgressTicker()
-                        applicationContext?.let { ctx ->
-                            KikiPlaybackService.startOrUpdate(
-                                context = ctx,
-                                title = track.title,
-                                artist = track.artist,
-                                isPlaying = true,
-                                trackId = track.id
-                            )
-                        }
-                        val remaining = (duration - startPos).coerceAtLeast(0L)
-                        scheduleTrackEndTransition(remaining)
-
-                        // Update device name in background
-                        viewModelScope.launch(Dispatchers.IO) {
-                            val devices = cloudService.getDevices(token!!)
-                            val activeDevice = devices.firstOrNull { it.isActive } ?: devices.firstOrNull()
-                            if (activeDevice != null) {
-                                withContext(Dispatchers.Main) {
-                                    _uiState.update { it.copy(activeDeviceName = activeDevice.name) }
-                                }
-                            }
-                        }
-                    }
-                    is PlaybackResult.NoActiveDevice -> {
-                        android.util.Log.w("PlayerViewModel", "No active YouTube Music Connect device found, waking YouTube Music app...")
-                        pendingTrackId = null
-                        _uiState.update { it.copy(isPlaying = false) }
-                        stopProgressTicker()
-                        cancelTrackEndTransition()
-                        onNoActiveDeviceListener?.invoke(track)
-                    }
-                    else -> {
-                        android.util.Log.e("PlayerViewModel", "playTrack failed: $result")
-                        pendingTrackId = null
-                        _uiState.update { it.copy(isPlaying = false) }
-                        stopProgressTicker()
-                        cancelTrackEndTransition()
-                    }
-                }
-            }
-            delay(400L)
-            fetchPlaybackStateNow()
         }
     }
 
@@ -237,6 +249,10 @@ class PlayerViewModel(
     fun triggerTrackEndTransition(expectedTrackId: String? = null) {
         val current = _uiState.value
         val currentId = current.currentTrack?.id
+        if (currentId == null) {
+            android.util.Log.w("PlayerViewModel", "Ignored track-end transition because currentTrack is null")
+            return
+        }
         val isMatchingTrack = expectedTrackId == null || expectedTrackId == currentId
         if (!isUserPaused && isMatchingTrack) {
             android.util.Log.d("PlayerViewModel", "Executing track-end transition for $currentId (isPlaying=${current.isPlaying})")
@@ -274,6 +290,7 @@ class PlayerViewModel(
         _uiState.update { it.copy(isPlaying = false) }
         cancelTrackEndTransition()
         stopProgressTicker()
+        audioPlayer?.pause()
         applicationContext?.let { ctx ->
             _uiState.value.currentTrack?.let { track ->
                 KikiPlaybackService.startOrUpdate(
@@ -287,82 +304,36 @@ class PlayerViewModel(
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            var token = getValidAccessToken()
+            val token = getValidAccessToken()
             if (!token.isNullOrBlank() && cloudService != null) {
-                var result = cloudService.pausePlayback(token)
-                if (result is PlaybackResult.Unauthorized) {
-                    token = getValidAccessToken(forceRefresh = true)
-                    if (!token.isNullOrBlank()) {
-                        cloudService.pausePlayback(token)
-                    }
-                }
+                cloudService.pausePlayback(token)
             }
-            delay(200L)
-            fetchPlaybackStateNow()
         }
     }
 
     fun resumePlayback() {
         isUserPaused = false
-        val current = _uiState.value.currentTrack
-        if (current == null) return
+        val current = _uiState.value.currentTrack ?: return
+        _uiState.update { it.copy(isPlaying = true) }
+        startProgressTicker()
+        audioPlayer?.resume()
+        applicationContext?.let { ctx ->
+            KikiPlaybackService.startOrUpdate(
+                context = ctx,
+                title = current.title,
+                artist = current.artist,
+                isPlaying = true,
+                trackId = current.id
+            )
+        }
+        val remaining = (_uiState.value.durationMs - _uiState.value.progressMs).coerceAtLeast(0L)
+        scheduleTrackEndTransition(remaining)
 
         viewModelScope.launch(Dispatchers.IO) {
-            var token = getValidAccessToken()
+            val token = getValidAccessToken()
             if (!token.isNullOrBlank() && cloudService != null) {
-                var result = cloudService.resumePlayback(token)
-                if (result is PlaybackResult.Unauthorized) {
-                    token = getValidAccessToken(forceRefresh = true)
-                    if (!token.isNullOrBlank()) {
-                        result = cloudService.resumePlayback(token)
-                    }
-                }
-
-                withContext(Dispatchers.Main) {
-                    when (result) {
-                        is PlaybackResult.Success -> {
-                            _uiState.update { it.copy(isPlaying = true) }
-                            startProgressTicker()
-                            applicationContext?.let { ctx ->
-                                KikiPlaybackService.startOrUpdate(
-                                    context = ctx,
-                                    title = current.title,
-                                    artist = current.artist,
-                                    isPlaying = true,
-                                    trackId = current.id
-                                )
-                            }
-                            val remaining = (_uiState.value.durationMs - _uiState.value.progressMs).coerceAtLeast(0L)
-                            scheduleTrackEndTransition(remaining)
-                        }
-                        is PlaybackResult.NoActiveDevice -> {
-                            onNoActiveDeviceListener?.invoke(current)
-                        }
-                        else -> {
-                            val playRes = cloudService.playTracks(token!!, listOf(current.uri), positionMs = _uiState.value.progressMs)
-                            if (playRes is PlaybackResult.Success) {
-                                _uiState.update { it.copy(isPlaying = true) }
-                                startProgressTicker()
-                                applicationContext?.let { ctx ->
-                                    KikiPlaybackService.startOrUpdate(
-                                        context = ctx,
-                                        title = current.title,
-                                        artist = current.artist,
-                                        isPlaying = true,
-                                        trackId = current.id
-                                    )
-                                }
-                                val remaining = (_uiState.value.durationMs - _uiState.value.progressMs).coerceAtLeast(0L)
-                                scheduleTrackEndTransition(remaining)
-                            } else if (playRes is PlaybackResult.NoActiveDevice) {
-                                onNoActiveDeviceListener?.invoke(current)
-                            }
-                        }
-                    }
-                }
+                cloudService.resumePlayback(token)
             }
-            delay(200L)
-            fetchPlaybackStateNow()
         }
     }
 
@@ -440,7 +411,9 @@ class PlayerViewModel(
         lastSeekTimeMs = System.currentTimeMillis()
         _uiState.update { it.copy(progressMs = validPos) }
 
-        if (_uiState.value.isPlaying) {
+        audioPlayer?.seekTo(validPos)
+
+        if (_uiState.value.isPlaying && audioPlayer == null) {
             val remaining = (duration - validPos).coerceAtLeast(0L)
             scheduleTrackEndTransition(remaining)
         }
@@ -488,7 +461,9 @@ class PlayerViewModel(
     }
 
     fun setVolume(volume: Int) {
-        _uiState.update { it.copy(volumePercent = volume.coerceIn(0, 100)) }
+        val coerced = volume.coerceIn(0, 100)
+        _uiState.update { it.copy(volumePercent = coerced) }
+        audioPlayer?.setVolume(coerced / 100f)
     }
 
     fun setExpandedPlayerOpen(isOpen: Boolean) {

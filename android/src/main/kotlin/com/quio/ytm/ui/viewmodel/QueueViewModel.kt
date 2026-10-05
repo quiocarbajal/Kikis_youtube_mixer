@@ -9,6 +9,7 @@ import com.quio.ytm.data.local.entity.PlaylistEntity
 import com.quio.ytm.data.local.entity.TrackEntity
 import com.quio.ytm.data.local.entity.toDomain
 import com.quio.ytm.data.local.entity.toEntity
+import com.quio.ytm.data.repository.YtmMixerRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +33,8 @@ data class QueueUiState(
 )
 
 class QueueViewModel(
-    private val queueManager: ActiveQueueManager
+    private val queueManager: ActiveQueueManager,
+    private val repository: YtmMixerRepository? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(QueueUiState())
@@ -40,7 +42,7 @@ class QueueViewModel(
 
     val filteredTracks: StateFlow<List<TrackEntity>> = _uiState.map { state ->
         if (state.searchQuery.isBlank()) {
-            emptyList()
+            state.tracks
         } else {
             state.tracks.filter {
                 it.title.contains(state.searchQuery, ignoreCase = true) ||
@@ -131,7 +133,20 @@ class QueueViewModel(
     }
 
     fun loadPlaylistIntoQueue(playlistId: String, playlistName: String) {
-        _uiState.update { it.copy(activePlaylistName = playlistName) }
+        _uiState.update { it.copy(activePlaylistName = playlistName, isLoading = true) }
+        viewModelScope.launch {
+            val tracks = repository?.getTracksForPlaylistSync(playlistId) ?: emptyList()
+            queueManager.setQueue(tracks.map { it.toDomain() }, startIndex = 0)
+            _uiState.update { it.copy(isLoading = false) }
+        }
+    }
+
+    fun appendPlaylistToQueue(playlistId: String, playlistName: String) {
+        viewModelScope.launch {
+            val tracks = repository?.getTracksForPlaylistSync(playlistId) ?: emptyList()
+            queueManager.appendTracks(tracks.map { it.toDomain() })
+            _uiState.update { it.copy(userMessage = "Added ${tracks.size} tracks from '$playlistName' to Queue") }
+        }
     }
 
     fun replaceQueue(tracks: List<TrackEntity>, newName: String? = null) {
@@ -146,10 +161,26 @@ class QueueViewModel(
     }
 
     fun saveQueueAsNewPlaylist(name: String, description: String = "") {
-        // Will call cloud API in Phase 8
+        viewModelScope.launch {
+            val currentTracks = _uiState.value.tracks
+            val playlistId = "custom_" + System.currentTimeMillis()
+            val pl = PlaylistEntity(
+                id = playlistId,
+                name = name,
+                totalTracks = currentTracks.size,
+                isCustom = true
+            )
+            repository?.upsertPlaylist(pl)
+            repository?.setPlaylistTracks(playlistId, currentTracks.map { it.id })
+            _uiState.update { it.copy(userMessage = "Playlist '$name' saved!") }
+        }
     }
 
     fun overwritePlaylistWithQueue(playlist: PlaylistEntity) {
-        // Will call cloud API in Phase 8
+        viewModelScope.launch {
+            val currentTracks = _uiState.value.tracks
+            repository?.setPlaylistTracks(playlist.id, currentTracks.map { it.id })
+            _uiState.update { it.copy(userMessage = "Playlist '${playlist.name}' updated!") }
+        }
     }
 }
