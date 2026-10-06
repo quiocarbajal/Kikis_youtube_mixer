@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -9,12 +11,26 @@ android {
     namespace = "com.quio.ytm"
     compileSdk = 35
 
+    val localProperties = Properties().apply {
+        val propFile = rootProject.file("local.properties")
+        if (propFile.exists()) {
+            propFile.inputStream().use { stream ->
+                this@apply.load(stream)
+            }
+        }
+    }
+    val googleClientId = localProperties.getProperty("google.client.id") ?: System.getenv("GOOGLE_CLIENT_ID") ?: ""
+    val googleClientSecret = localProperties.getProperty("google.client.secret") ?: System.getenv("GOOGLE_CLIENT_SECRET") ?: ""
+
     defaultConfig {
         applicationId = "com.quio.ytm"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+
+        buildConfigField("String", "GOOGLE_CLIENT_ID", "\"$googleClientId\"")
+        buildConfigField("String", "GOOGLE_CLIENT_SECRET", "\"$googleClientSecret\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

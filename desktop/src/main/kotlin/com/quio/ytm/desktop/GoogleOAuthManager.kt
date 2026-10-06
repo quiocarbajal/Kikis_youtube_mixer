@@ -25,9 +25,27 @@ class GoogleOAuthManager(
     private val httpClient = HttpClient.newHttpClient()
     private val secureRandom = SecureRandom()
     
-    // Google OAuth 2.0 Credentials for kiki's youtube mixer
-    private val clientId = "YOUR_GOOGLE_CLIENT_ID"
-    private val clientSecret = "YOUR_GOOGLE_CLIENT_SECRET"
+    companion object {
+        private fun loadCredential(key: String, envKey: String): String {
+            val env = System.getenv(envKey)
+            if (!env.isNullOrBlank()) return env
+            val propFiles = listOf(File("local.properties"), File("../local.properties"))
+            for (f in propFiles) {
+                if (f.exists()) {
+                    try {
+                        val props = java.util.Properties().apply { f.inputStream().use { load(it) } }
+                        val value = props.getProperty(key)
+                        if (!value.isNullOrBlank()) return value
+                    } catch (_: Exception) {}
+                }
+            }
+            return ""
+        }
+    }
+
+    // Google OAuth 2.0 Credentials loaded from local.properties or environment
+    private val clientId = loadCredential("google.client.id", "GOOGLE_CLIENT_ID")
+    private val clientSecret = loadCredential("google.client.secret", "GOOGLE_CLIENT_SECRET")
     
     private var currentCodeVerifier: String = ""
     private var currentState: String = ""

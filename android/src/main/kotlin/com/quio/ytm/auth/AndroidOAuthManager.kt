@@ -6,6 +6,7 @@ import android.net.Uri
 import android.util.Base64
 import android.util.Log
 import com.google.gson.JsonParser
+import com.quio.ytm.BuildConfig
 import com.quio.ytm.core.api.InnertubeClient
 import com.quio.ytm.data.repository.YtmMixerRepository
 import kotlinx.coroutines.CoroutineScope
@@ -32,8 +33,8 @@ class AndroidOAuthManager(
 ) {
     companion object {
         private const val TAG = "AndroidOAuthManager"
-        private const val CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID"
-        private const val CLIENT_SECRET = "YOUR_GOOGLE_CLIENT_SECRET"
+        private val CLIENT_ID = BuildConfig.GOOGLE_CLIENT_ID
+        private val CLIENT_SECRET = BuildConfig.GOOGLE_CLIENT_SECRET
         private const val PORT = 8888
         private const val REDIRECT_URI = "http://127.0.0.1:8888/callback"
     }

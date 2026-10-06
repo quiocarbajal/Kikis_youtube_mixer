@@ -46,9 +46,12 @@ session.json
 __pycache__/
 .venv/
 local_playlists.json
+**/local_playlists.json
 blacklist.json
+**/blacklist.json
 ytm_auth.json
+**/ytm_auth.json
 client_secret_*.json
 backups/
 desktop/backups/
-desktop/ytm_auth.json
+README youtube.md

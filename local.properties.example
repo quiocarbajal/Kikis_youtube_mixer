@@ -1,0 +1,6 @@
+# Location of the Android SDK
+sdk.dir=/path/to/android/sdk
+
+# Google OAuth 2.0 Credentials (obtain from Google Cloud Console)
+google.client.id=your-google-client-id.apps.googleusercontent.com
+google.client.secret=your-google-client-secret
