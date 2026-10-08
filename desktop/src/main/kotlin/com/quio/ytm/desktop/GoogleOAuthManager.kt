@@ -169,6 +169,77 @@ class GoogleOAuthManager(
         }
     }
 
+    /**
+     * Ensures the InnertubeClient holds a valid (non-expired) OAuth access token.
+     * Access tokens last ~1 hour; when the stored one is expired (or about to) it is
+     * renewed with the stored refresh token and persisted back to the auth file.
+     * @return true if a usable access token is available afterwards.
+     */
+    suspend fun ensureFreshToken(): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (!authFile.exists()) return@withContext innertubeClient.getOAuthToken().isNotBlank()
+                val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
+                val auth = json.decodeFromString<AuthData>(authFile.readText())
+                if (auth.access_token.isBlank() && auth.refresh_token.isBlank()) return@withContext false
+
+                val stillValid = auth.access_token.isNotBlank() &&
+                    auth.expires_at > System.currentTimeMillis() + 60_000L
+                if (stillValid) {
+                    if (innertubeClient.getOAuthToken() != auth.access_token) {
+                        innertubeClient.setOAuthToken(auth.access_token)
+                    }
+                    return@withContext true
+                }
+
+                if (auth.refresh_token.isBlank()) {
+                    System.err.println("OAuth access token expired and no refresh token stored. Please reconnect your Google account.")
+                    return@withContext false
+                }
+                if (clientId.isBlank() || clientSecret.isBlank()) {
+                    System.err.println("OAuth token expired but google.client.id / google.client.secret are not configured (see local.properties.example).")
+                    return@withContext false
+                }
+
+                val formBody = listOf(
+                    "client_id" to clientId,
+                    "client_secret" to clientSecret,
+                    "refresh_token" to auth.refresh_token,
+                    "grant_type" to "refresh_token"
+                ).joinToString("&") { (k, v) ->
+                    "${URLEncoder.encode(k, StandardCharsets.UTF_8)}=${URLEncoder.encode(v, StandardCharsets.UTF_8)}"
+                }
+                val req = HttpRequest.newBuilder()
+                    .uri(URI("https://oauth2.googleapis.com/token"))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(HttpRequest.BodyPublishers.ofString(formBody))
+                    .build()
+                val resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString())
+                if (resp.statusCode() !in 200..299) {
+                    System.err.println("OAuth token refresh failed (${resp.statusCode()}): ${resp.body()}. Please reconnect your Google account.")
+                    return@withContext false
+                }
+
+                val root = JsonParser.parseString(resp.body()).asJsonObject
+                val newAccess = root.get("access_token")?.asString ?: return@withContext false
+                val expiresIn = root.get("expires_in")?.asLong ?: 3600L
+                // Google normally does not return a new refresh_token on refresh; keep the old one.
+                val newRefresh = root.get("refresh_token")?.asString ?: auth.refresh_token
+                val updated = auth.copy(
+                    access_token = newAccess,
+                    refresh_token = newRefresh,
+                    expires_at = System.currentTimeMillis() + expiresIn * 1000L
+                )
+                innertubeClient.setOAuthToken(newAccess)
+                authFile.writeText(json.encodeToString(updated))
+                true
+            } catch (e: Exception) {
+                System.err.println("OAuth token refresh error: ${e.message}")
+                false
+            }
+        }
+    }
+
     private fun generateCodeVerifier(): String {
         val bytes = ByteArray(32)
         secureRandom.nextBytes(bytes)

@@ -197,6 +197,12 @@ data class GenericOkResponse(
 )
 
 @Serializable
+data class ErrorDetailResponse(
+    val status: String = "error",
+    val detail: String
+)
+
+@Serializable
 data class ExportPlaylistResponse(
     val status: String = "ok",
     val playlist_id: String,
@@ -390,6 +396,8 @@ fun main() {
             }
         } catch (_: Exception) {}
     }
+
+    desktopScope.launch { googleOAuthManager.ensureFreshToken() }
 
     val browserLoginManager = BrowserLoginManager(
         innertubeClient = innertubeClient,
@@ -588,6 +596,7 @@ fun main() {
                 try {
                     // Pre-sync backup snapshot of current local library
                     localPlaylistManager.createBackupSnapshot("pre_sync_snapshot")
+                    googleOAuthManager.ensureFreshToken()
 
                     var likedCount = 0
                     var playlistCount = 0
@@ -1070,6 +1079,7 @@ fun main() {
                     "merge" -> localPlaylistManager.mergeTracks(id, pl.tracks)
                     else -> {
                         // Push to YouTube Music if needed
+                        googleOAuthManager.ensureFreshToken()
                         var ytId = pl.yt_playlist_id
                         if (ytId.isNullOrEmpty() || ytId.startsWith("yt_pl_") || ytId == "LM") {
                             val remoteId = try {
@@ -1080,11 +1090,23 @@ fun main() {
                                     videoIds = pl.tracks.map { it.id }
                                 )
                             } catch (_: Exception) { null }
-                            if (remoteId != null) ytId = remoteId
+                            if (remoteId == null) {
+                                call.respond(HttpStatusCode.BadGateway, ErrorDetailResponse(
+                                    detail = "Could not create \"${pl.name}\" on YouTube Music. Reconnect your Google account and try again (see app log for details)."
+                                ))
+                                return@post
+                            }
+                            ytId = remoteId
                         } else {
-                            try {
+                            val ok = try {
                                 innertubeClient.addTracksToPlaylist(ytId, pl.tracks.map { it.id })
-                            } catch (_: Exception) {}
+                            } catch (_: Exception) { false }
+                            if (!ok) {
+                                call.respond(HttpStatusCode.BadGateway, ErrorDetailResponse(
+                                    detail = "Could not update \"${pl.name}\" on YouTube Music. Reconnect your Google account and try again (see app log for details)."
+                                ))
+                                return@post
+                            }
                         }
                         localPlaylistManager.markSynced(id, ytId)
                     }
@@ -1116,17 +1138,30 @@ fun main() {
                 val videoIds = pl.tracks.map { it.id }
                 var isCreatedNew = false
 
+                googleOAuthManager.ensureFreshToken()
                 if (ytId.isNullOrEmpty() || ytId.startsWith("yt_pl_") || ytId == "LM") {
                     val desc = pl.description.ifEmpty { "Curated with kiki's youtube mixer" }
                     val remoteId = try {
                         innertubeClient.createPlaylist(title = pl.name, description = desc, privacyStatus = "PRIVATE", videoIds = videoIds)
                     } catch (_: Exception) { null }
-                    ytId = remoteId ?: "yt_pl_${pl.id.removePrefix("local_pl_")}"
+                    if (remoteId == null) {
+                        call.respond(HttpStatusCode.BadGateway, ErrorDetailResponse(
+                            detail = "Could not create \"${pl.name}\" on YouTube Music. Reconnect your Google account and try again (see app log for details)."
+                        ))
+                        return@post
+                    }
+                    ytId = remoteId
                     isCreatedNew = true
                 } else {
-                    try {
+                    val ok = try {
                         innertubeClient.addTracksToPlaylist(ytId, videoIds)
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) { false }
+                    if (!ok) {
+                        call.respond(HttpStatusCode.BadGateway, ErrorDetailResponse(
+                            detail = "Could not update \"${pl.name}\" on YouTube Music. Reconnect your Google account and try again (see app log for details)."
+                        ))
+                        return@post
+                    }
                 }
 
                 val updatedSummary = localPlaylistManager.markSynced(id, ytId) ?: pl.toSummary()
@@ -1170,6 +1205,7 @@ fun main() {
                     playlistId = null
                 )
 
+                googleOAuthManager.ensureFreshToken()
                 val remoteYtId = try {
                     innertubeClient.createPlaylist(
                         title = plName,
@@ -1179,16 +1215,21 @@ fun main() {
                     )
                 } catch (_: Exception) { null }
 
-                val finalYtId = remoteYtId ?: "yt_pl_${localPl.id.removePrefix("local_pl_")}"
-                localPlaylistManager.markSynced(localPl.id, finalYtId)
+                if (remoteYtId == null) {
+                    call.respond(HttpStatusCode.BadGateway, ErrorDetailResponse(
+                        detail = "Saved locally as \"$plName\", but it could NOT be created on YouTube Music. Reconnect your Google account and try again (see app log for details)."
+                    ))
+                    return@post
+                }
+                localPlaylistManager.markSynced(localPl.id, remoteYtId)
 
-                val webUrl = if (finalYtId.startsWith("PL") || finalYtId.length >= 10) "https://music.youtube.com/playlist?list=$finalYtId" else null
+                val webUrl = if (remoteYtId.startsWith("PL") || remoteYtId.length >= 10) "https://music.youtube.com/playlist?list=$remoteYtId" else null
                 val msg = "🔥 Shuffled queue baked and exported to YouTube Music as \"$plName\" (${trackDtos.size} tracks)!"
 
                 call.respond(BakeShuffleResponse(
                     status = "ok",
                     playlist_id = localPl.id,
-                    yt_playlist_id = finalYtId,
+                    yt_playlist_id = remoteYtId,
                     name = plName,
                     total_tracks = trackDtos.size,
                     web_url = webUrl,

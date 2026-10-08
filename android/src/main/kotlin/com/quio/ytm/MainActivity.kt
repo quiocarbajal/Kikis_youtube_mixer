@@ -68,7 +68,8 @@ class MainActivity : ComponentActivity() {
         // Initialize ViewModels
         queueViewModel = QueueViewModel(
             queueManager = queueManager,
-            repository = repository
+            repository = repository,
+            cloudService = cloudService
         )
         libraryViewModel = LibraryViewModel(
             repository = repository,

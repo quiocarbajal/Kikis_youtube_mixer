@@ -34,7 +34,8 @@ data class QueueUiState(
 
 class QueueViewModel(
     private val queueManager: ActiveQueueManager,
-    private val repository: YtmMixerRepository? = null
+    private val repository: YtmMixerRepository? = null,
+    private val cloudService: com.quio.ytm.data.remote.YtmCloudService? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(QueueUiState())
@@ -172,7 +173,14 @@ class QueueViewModel(
             )
             repository?.upsertPlaylist(pl)
             repository?.setPlaylistTracks(playlistId, currentTracks.map { it.id })
-            _uiState.update { it.copy(userMessage = "Playlist '$name' saved!") }
+            _uiState.update { it.copy(userMessage = "Playlist '$name' saved! Syncing to YouTube...") }
+            
+            launch(kotlinx.coroutines.Dispatchers.IO) {
+                val success = cloudService?.exportPlaylist(playlistId) == true
+                if (success) {
+                    _uiState.update { it.copy(userMessage = "Playlist '$name' successfully exported to YouTube!") }
+                }
+            }
         }
     }
 

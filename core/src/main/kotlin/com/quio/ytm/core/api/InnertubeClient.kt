@@ -559,16 +559,23 @@ class InnertubeClient(
                     put("privacyStatus", privacyStatus.lowercase())
                 }
             }
-            val respStr = client.post("https://www.googleapis.com/youtube/v3/playlists?part=snippet,status") {
+            val resp = client.post("https://www.googleapis.com/youtube/v3/playlists?part=snippet,status") {
                 contentType(ContentType.Application.Json)
                 header("Authorization", "Bearer $oauthToken")
                 setBody(payload)
-            }.bodyAsText()
+            }
+            val respStr = resp.bodyAsText()
+            if (resp.status.value !in 200..299) {
+                System.err.println("YouTube Data API playlists.insert failed (${resp.status.value}): $respStr")
+                return null
+            }
 
             val root = JsonParser.parseString(respStr).asJsonObject
             val createdId = root.get("id")?.asString
             if (!createdId.isNullOrEmpty() && videoIds.isNotEmpty()) {
-                addTracksToPlaylistOAuth(createdId, videoIds)
+                if (!addTracksToPlaylistOAuth(createdId, videoIds)) {
+                    System.err.println("Playlist $createdId was created but not all tracks could be added (see error above).")
+                }
             }
             createdId
         } catch (e: Exception) {
@@ -632,10 +639,14 @@ class InnertubeClient(
                         }
                     }
                 }
-                client.post("https://www.googleapis.com/youtube/v3/playlistItems?part=snippet") {
+                val resp = client.post("https://www.googleapis.com/youtube/v3/playlistItems?part=snippet") {
                     contentType(ContentType.Application.Json)
                     header("Authorization", "Bearer $oauthToken")
                     setBody(payload)
+                }
+                if (resp.status.value !in 200..299) {
+                    System.err.println("YouTube Data API playlistItems.insert failed (${resp.status.value}): ${resp.bodyAsText()}")
+                    return false
                 }
             }
             true
@@ -742,6 +753,45 @@ class InnertubeClient(
             System.err.println("Error fetching liked songs via YouTube Data API: ${e.message}")
         }
         return tracks
+    }
+
+    suspend fun rateSong(videoId: String, rating: String): Boolean {
+        if (oauthToken.isNotEmpty()) {
+            val success = rateSongOAuth(videoId, rating)
+            if (success) return true
+        }
+
+        val endpoint = if (rating == "like") "like/like" else "like/removelike"
+        val payload = buildJsonObject {
+            put("context", buildContext())
+            put("target", buildJsonObject {
+                put("videoId", videoId)
+            })
+        }
+
+        return try {
+            val response = client.post("https://music.youtube.com/youtubei/v1/$endpoint?alt=json") {
+                contentType(ContentType.Application.Json)
+                applyAuthHeaders()
+                setBody(payload)
+            }
+            response.status.value in 200..299
+        } catch (e: Exception) {
+            System.err.println("Error rating song via InnerTube: ${e.message}")
+            false
+        }
+    }
+
+    private suspend fun rateSongOAuth(videoId: String, rating: String): Boolean {
+        return try {
+            val resp = client.post("https://www.googleapis.com/youtube/v3/videos/rate?id=$videoId&rating=$rating") {
+                header("Authorization", "Bearer $oauthToken")
+            }
+            resp.status.value in 200..299
+        } catch (e: Exception) {
+            System.err.println("Error rating song via YouTube Data API: ${e.message}")
+            false
+        }
     }
 
     /**

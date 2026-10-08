@@ -24,6 +24,12 @@ data class PlaylistEntity(
     @ColumnInfo(name = "is_custom")
     val isCustom: Boolean = false,
 
+    @ColumnInfo(name = "yt_playlist_id")
+    val ytPlaylistId: String? = null,
+
+    @ColumnInfo(name = "remote_track_count")
+    val remoteTrackCount: Int = 0,
+
     @ColumnInfo(name = "updated_at")
     val updatedAt: Long = System.currentTimeMillis()
 )

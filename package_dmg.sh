@@ -6,7 +6,9 @@ cd "$DIR"
 
 # Detect JAVA_HOME if not set
 if [ -z "$JAVA_HOME" ]; then
-    if [ -d "/Library/Java/JavaVirtualMachines/jdk-24.jdk/Contents/Home" ]; then
+    if [ -d "/opt/homebrew/Cellar/openjdk@17/17.0.20.1/libexec/openjdk.jdk/Contents/Home" ]; then
+        export JAVA_HOME="/opt/homebrew/Cellar/openjdk@17/17.0.20.1/libexec/openjdk.jdk/Contents/Home"
+    elif [ -d "/Library/Java/JavaVirtualMachines/jdk-24.jdk/Contents/Home" ]; then
         export JAVA_HOME="/Library/Java/JavaVirtualMachines/jdk-24.jdk/Contents/Home"
     elif [ -x "/usr/libexec/java_home" ]; then
         export JAVA_HOME="$(/usr/libexec/java_home -v 17+ 2>/dev/null || /usr/libexec/java_home 2>/dev/null)"
@@ -38,4 +40,4 @@ echo "Building and packaging kiki's youtube mixer DMG..."
 ./gradlew :desktop:packageDmg
 
 echo "✅ DMG generated successfully in root:"
-ls -lh "kiki's youtube mixer-0.0.1.dmg" 2>/dev/null || ls -lh ./*.dmg 2>/dev/null
+ls -lh "kiki's youtube mixer-0.0.2.dmg" 2>/dev/null || ls -lh ./*.dmg 2>/dev/null

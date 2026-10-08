@@ -35,6 +35,9 @@ dependencies {
     testImplementation(libs.junit)
 }
 
+val appVersion = "0.0.2"
+val jpackageVersion = "1.0.2" // macOS jpackage requires the first number to be >= 1
+
 tasks.register<Exec>("packageDmg") {
     group = "distribution"
     description = "Packages the desktop application into a standalone macOS DMG installer using jpackage"
@@ -59,7 +62,7 @@ tasks.register<Exec>("packageDmg") {
         jpackageExec,
         "--type", "dmg",
         "--name", "kiki's youtube mixer",
-        "--app-version", "1.0.0",
+        "--app-version", jpackageVersion,
         "--input", inputDir.absolutePath,
         "--main-jar", "desktop.jar",
         "--main-class", "com.quio.ytm.desktop.MainKt",
@@ -74,8 +77,8 @@ tasks.register<Exec>("packageDmg") {
     commandLine(argsList)
 
     doLast {
-        val generatedDmg = file("${outputDir.absolutePath}/kiki's youtube mixer-1.0.0.dmg")
-        val targetDmg = file("${project.rootDir}/kiki's youtube mixer-0.0.1.dmg")
+        val generatedDmg = file("${outputDir.absolutePath}/kiki's youtube mixer-${jpackageVersion}.dmg")
+        val targetDmg = file("${project.rootDir}/kiki's youtube mixer-${appVersion}.dmg")
         if (generatedDmg.exists()) {
             generatedDmg.copyTo(targetDmg, overwrite = true)
         }

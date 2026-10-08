@@ -61,7 +61,39 @@ class YtmCloudService(
                 }
             }
 
-            // 1. Fetch Liked Songs
+            // 0. Fetch Local Playlists for Diffing
+            var localPlaylists = repository.getAllPlaylistsSync().associateBy { it.id }
+
+            // 1. Export local unlinked playlists to YouTube (Two-way sync)
+            onProgress(0.05f, "Exporting local playlists...")
+            localPlaylists.values.forEach { localPl ->
+                if (localPl.isCustom || (localPl.ytPlaylistId == null && localPl.id.startsWith("custom_"))) {
+                    val tracks = repository.getTracksForPlaylistSync(localPl.id)
+                    val newYtId = try {
+                        innertubeClient.createPlaylist(
+                            title = localPl.name,
+                            description = localPl.description ?: "Created via kiki's youtube mixer",
+                            privacyStatus = "PRIVATE",
+                            videoIds = tracks.map { it.id }
+                        )
+                    } catch (e: Exception) { null }
+
+                    if (newYtId != null) {
+                        repository.upsertPlaylist(
+                            localPl.copy(
+                                ytPlaylistId = newYtId,
+                                isCustom = false,
+                                remoteTrackCount = tracks.size
+                            )
+                        )
+                    }
+                }
+            }
+
+            // Re-fetch local playlists to get the newly exported ytPlaylistId links
+            localPlaylists = repository.getAllPlaylistsSync().associateBy { it.id }
+
+            // 2. Fetch Liked Songs
             onProgress(0.1f, "Fetching Liked Songs...")
             val likedTracks = try {
                 innertubeClient.getLikedSongs()
@@ -80,24 +112,49 @@ class YtmCloudService(
                         id = "liked_songs",
                         name = "Liked Songs",
                         totalTracks = entities.size,
-                        isCustom = false
+                        isCustom = false,
+                        remoteTrackCount = entities.size
                     )
                 )
             }
 
-            // 2. Fetch Playlists
-            onProgress(0.45f, "Fetching YouTube Music Playlists...")
-            val playlists = try {
+            // 3. Fetch Remote Playlists (Quick Summary)
+            onProgress(0.4f, "Fetching YouTube Music Playlists...")
+            val remotePlaylists = try {
                 innertubeClient.getLibraryPlaylists()
             } catch (e: Exception) {
                 emptyList()
             }
 
-            val totalPlaylists = playlists.size
-            playlists.forEachIndexed { index, remotePl ->
-                val plProgress = 0.5f + (index.toFloat() / totalPlaylists.coerceAtLeast(1) * 0.45f)
-                onProgress(plProgress, "Syncing playlist ${index + 1}/$totalPlaylists: ${remotePl.title}")
+            // 4. Handle Deletions: Remove local playlists that no longer exist on YouTube
+            val remotePlaylistIds = remotePlaylists.map { it.id }.toSet()
+            localPlaylists.values.forEach { localPl ->
+                val isLinked = localPl.ytPlaylistId != null || (!localPl.isCustom && localPl.id != "liked_songs")
+                val isMissing = !remotePlaylistIds.contains(localPl.ytPlaylistId ?: localPl.id)
+                if (isLinked && isMissing && localPl.id != "liked_songs") {
+                    repository.deletePlaylist(localPl.id)
+                }
+            }
 
+            // 5. Handle Updates / Additions (Delta Quick Sync)
+            val totalPlaylists = remotePlaylists.size
+            remotePlaylists.forEachIndexed { index, remotePl ->
+                val plProgress = 0.4f + (index.toFloat() / totalPlaylists.coerceAtLeast(1) * 0.6f)
+                
+                val localPl = localPlaylists.values.find { it.ytPlaylistId == remotePl.id }
+                    ?: localPlaylists[remotePl.id]
+                    ?: localPlaylists.values.find { it.name.equals(remotePl.title, ignoreCase = true) }
+
+                // 🚀 THE QUICK SYNC DIFF CHECK
+                if (localPl != null && localPl.remoteTrackCount == remotePl.trackCount) {
+                    onProgress(plProgress, "Skipping ${remotePl.title} (Up to date)")
+                    if (localPl.ytPlaylistId != remotePl.id) {
+                        repository.upsertPlaylist(localPl.copy(ytPlaylistId = remotePl.id, isCustom = false))
+                    }
+                    return@forEachIndexed // skip this one!
+                }
+
+                onProgress(plProgress, "Syncing playlist ${index + 1}/$totalPlaylists: ${remotePl.title}")
                 val tracks = try {
                     innertubeClient.getPlaylistTracks(remotePl.id)
                 } catch (e: Exception) {
@@ -109,15 +166,19 @@ class YtmCloudService(
                     repository.upsertTracks(trackEntities)
                 }
 
+                val targetId = localPl?.id ?: remotePl.id
+
                 repository.upsertPlaylist(
                     PlaylistEntity(
-                        id = remotePl.id,
+                        id = targetId,
                         name = remotePl.title,
                         totalTracks = trackEntities.size,
-                        isCustom = false
+                        isCustom = false,
+                        ytPlaylistId = remotePl.id,
+                        remoteTrackCount = remotePl.trackCount
                     )
                 )
-                repository.setPlaylistTracks(remotePl.id, trackEntities.map { it.id })
+                repository.setPlaylistTracks(targetId, trackEntities.map { it.id })
             }
 
             onProgress(1.0f, "Library Sync Complete!")
@@ -184,17 +245,31 @@ class YtmCloudService(
         }
     }
 
-    suspend fun savePlaylist(name: String, tracks: List<TrackEntity>): Boolean = withContext(Dispatchers.IO) {
-        if (innertubeClient == null) return@withContext false
+    suspend fun exportPlaylist(localId: String): Boolean = withContext(Dispatchers.IO) {
+        if (innertubeClient == null || repository == null) return@withContext false
         try {
-            val videoIds = tracks.map { it.id }
+            val localPl = repository.getAllPlaylistsSync().find { it.id == localId } ?: return@withContext false
+            if (localPl.ytPlaylistId != null) return@withContext true // Already exported
+
+            val tracks = repository.getTracksForPlaylistSync(localId)
             val newPlaylistId = innertubeClient.createPlaylist(
-                title = name,
-                description = "Created with Kiki's YouTube Mixer",
+                title = localPl.name,
+                description = localPl.description ?: "Created with Kiki's YouTube Mixer",
                 privacyStatus = "PRIVATE",
-                videoIds = videoIds
+                videoIds = tracks.map { it.id }
             )
-            !newPlaylistId.isNullOrEmpty()
+            
+            if (!newPlaylistId.isNullOrEmpty()) {
+                repository.upsertPlaylist(
+                    localPl.copy(
+                        ytPlaylistId = newPlaylistId,
+                        isCustom = false,
+                        remoteTrackCount = tracks.size
+                    )
+                )
+                return@withContext true
+            }
+            false
         } catch (e: Exception) {
             false
         }
@@ -205,11 +280,29 @@ class YtmCloudService(
     }
 
     suspend fun saveTrackToLiked(token: String, trackId: String): Boolean = withContext(Dispatchers.IO) {
-        true
+        if (innertubeClient == null) return@withContext false
+        try {
+            if (token.isNotBlank()) {
+                if (token.contains(";")) innertubeClient.setCookies(token)
+                else innertubeClient.setOAuthToken(token)
+            }
+            innertubeClient.rateSong(trackId, "like")
+        } catch (e: Exception) {
+            false
+        }
     }
 
     suspend fun removeTrackFromLiked(token: String, trackId: String): Boolean = withContext(Dispatchers.IO) {
-        true
+        if (innertubeClient == null) return@withContext false
+        try {
+            if (token.isNotBlank()) {
+                if (token.contains(";")) innertubeClient.setCookies(token)
+                else innertubeClient.setOAuthToken(token)
+            }
+            innertubeClient.rateSong(trackId, "none")
+        } catch (e: Exception) {
+            false
+        }
     }
 
     suspend fun fetchRecentlyPlayedTrackIds(token: String, days: Int = 30): Set<String> = withContext(Dispatchers.IO) {
