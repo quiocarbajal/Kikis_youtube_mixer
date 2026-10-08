@@ -29,7 +29,12 @@ class GoogleOAuthManager(
         private fun loadCredential(key: String, envKey: String): String {
             val env = System.getenv(envKey)
             if (!env.isNullOrBlank()) return env
-            val propFiles = listOf(File("local.properties"), File("../local.properties"))
+            val propFiles = listOf(
+                File("local.properties"),
+                File("../local.properties"),
+                File(System.getProperty("user.home"), ".kiki_ytm/local.properties"),
+                File(System.getProperty("user.home"), ".kiki_ytm/oauth_config.properties")
+            )
             for (f in propFiles) {
                 if (f.exists()) {
                     try {
@@ -39,6 +44,15 @@ class GoogleOAuthManager(
                     } catch (_: Exception) {}
                 }
             }
+            // Check bundled classpath resource embedded during packaging
+            try {
+                val stream = GoogleOAuthManager::class.java.getResourceAsStream("/oauth_config.properties")
+                if (stream != null) {
+                    val props = java.util.Properties().apply { stream.use { load(it) } }
+                    val value = props.getProperty(key)
+                    if (!value.isNullOrBlank()) return value
+                }
+            } catch (_: Exception) {}
             return ""
         }
     }

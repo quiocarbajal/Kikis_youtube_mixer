@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -33,6 +34,27 @@ dependencies {
     implementation(libs.gson)
 
     testImplementation(libs.junit)
+}
+
+tasks.named<ProcessResources>("processResources") {
+    val localPropsFile = rootProject.file("local.properties")
+    doLast {
+        val props = if (localPropsFile.exists()) {
+            Properties().apply { localPropsFile.inputStream().use { stream -> this.load(stream) } }
+        } else null
+
+        val clientId = props?.getProperty("google.client.id")
+            ?: System.getenv("GOOGLE_CLIENT_ID")
+            ?: ""
+        val clientSecret = props?.getProperty("google.client.secret")
+            ?: System.getenv("GOOGLE_CLIENT_SECRET")
+            ?: ""
+
+        if (clientId.isNotBlank()) {
+            val targetFile = destinationDir.resolve("oauth_config.properties")
+            targetFile.writeText("google.client.id=$clientId\ngoogle.client.secret=$clientSecret\n")
+        }
+    }
 }
 
 val appVersion = "0.0.2"
